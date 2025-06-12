@@ -1,10 +1,9 @@
-
 'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/button' 
 import { 
   Shield, 
   Menu, 
@@ -66,7 +65,7 @@ export function Header() {
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
-            {session ? (
+            {session?.user ? ( // Verificação mais segura
               <>
                 {/* Plan Badge */}
                 <Badge 
@@ -90,10 +89,12 @@ export function Header() {
                     <User className="h-5 w-5" />
                   </Button>
                   
-                  <div className="absolute right-0 mt-2 w-48 bg-background border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  <div className="absolute right-0 mt-2 w-56 bg-background border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                     <div className="py-1">
                       <div className="px-4 py-2 text-sm text-muted-foreground border-b">
-                        {session.user.name}
+                        <p className="font-semibold">{session.user.name}</p>
+                        {/* --- ALTERAÇÃO 1: ADICIONADO O E-MAIL --- */}
+                        <p className="truncate">{session.user.email}</p>
                       </div>
                       <Link
                         href="/settings"
@@ -103,7 +104,8 @@ export function Header() {
                         Configurações
                       </Link>
                       <button
-                        onClick={() => signOut()}
+                        // --- ALTERAÇÃO 2: MELHORADA A FUNÇÃO signOut ---
+                        onClick={() => signOut({ callbackUrl: '/' })}
                         className="flex items-center w-full px-4 py-2 text-sm hover:bg-accent text-left"
                       >
                         <LogOut className="h-4 w-4 mr-2" />
