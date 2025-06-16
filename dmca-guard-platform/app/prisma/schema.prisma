@@ -86,8 +86,24 @@ model User {
   notifications     Notification[]
   auditLogs         AuditLog[]
   subscriptions     Subscription[]
+  domainWhitelists  DomainWhitelist[] // <--- ADICIONADO ESTA LINHA
 
   @@map("users")
+}
+
+// Whitelist de domínios por usuário
+model DomainWhitelist {
+  id        String   @id @default(cuid())
+  userId    String
+  domain    String   // Ex: example.com
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, domain], name: "user_domain_unique") // Garante que um usuário não pode adicionar o mesmo domínio múltiplas vezes
+  @@map("domain_whitelists")
 }
 
 // Perfis de marca das criadoras

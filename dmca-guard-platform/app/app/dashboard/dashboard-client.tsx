@@ -11,7 +11,7 @@ import { Session } from 'next-auth' // NOVA importação para tipagem
 import Link from 'next/link'
 import { 
   Shield, Search, AlertTriangle, CheckCircle, TrendingUp,
-  Eye, Mail, Clock, Plus, PlusSquare, FilePlus
+  Eye, Mail, Clock, Plus, PlusSquare, FilePlus, ListFilter // Added ListFilter for Whitelist
 } from 'lucide-react'
 import { LoadingSpinner } from '@/components/loading-spinner'
 import { Footer } from '@/components/footer'
@@ -446,6 +446,12 @@ export default function DashboardClient({ session }: DashboardClientProps) {
                   <FilePlus className="h-4 w-4 mr-2" />
                   Adicionar Conteúdo Detectado Manualmente
                 </Button>
+                <Link href="/dashboard/whitelist">
+                  <Button className="w-full justify-start" variant="outline">
+                    <ListFilter className="h-4 w-4 mr-2" />
+                    Gerenciar Whitelist de Domínios
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           </motion.div>
