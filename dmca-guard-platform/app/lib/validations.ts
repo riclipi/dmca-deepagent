@@ -65,3 +65,8 @@ export const domainWhitelistSchema = z.object({
       return domainRegex.test(value);
     }, 'Formato de domínio inválido. Use example.com'),
 });
+
+export const updateTakedownRequestSchema = z.object({
+  subject: z.string().min(5, 'Assunto deve ter pelo menos 5 caracteres').max(255, 'Assunto muito longo'),
+  message: z.string().min(20, 'Mensagem deve ter pelo menos 20 caracteres').max(10000, 'Mensagem muito longa')
+});

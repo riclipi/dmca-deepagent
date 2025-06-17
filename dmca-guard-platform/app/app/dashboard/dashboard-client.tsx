@@ -430,7 +430,7 @@ export default function DashboardClient({ session }: DashboardClientProps) {
                     Nova Sessão de Monitoramento
                   </Button>
                 </Link>
-                <Link href="/takedowns">
+                <Link href="/dashboard/takedown-requests"> {/* UPDATED LINK */}
                   <Button className="w-full justify-start" variant="outline">
                     <Mail className="h-4 w-4 mr-2" />
                     Ver Takedowns
@@ -475,7 +475,7 @@ export default function DashboardClient({ session }: DashboardClientProps) {
                   Status das suas solicitações de remoção
                 </CardDescription>
               </div>
-              <Link href="/takedowns">
+                <Link href="/dashboard/takedown-requests"> {/* UPDATED LINK */}
                 <Button variant="outline" size="sm">
                   Ver Todos
                 </Button>
