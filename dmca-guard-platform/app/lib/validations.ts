@@ -43,3 +43,30 @@ export const takedownRequestSchema = z.object({
   recipientEmail: z.string().email('Email inválido'),
   customMessage: z.string().optional()
 })
+
+export const domainWhitelistSchema = z.object({
+  domain: z.string().min(3, 'Domínio deve ter pelo menos 3 caracteres')
+    .max(255, 'Domínio muito longo')
+    .transform(value => { // Use transform for normalization before refine
+      try {
+        let normalized = value.toLowerCase().trim();
+        if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) {
+          normalized = 'http://' + normalized;
+        }
+        return new URL(normalized).hostname;
+      } catch (e) {
+        return value; // Return original value if URL parsing fails, refine will catch it
+      }
+    })
+    .refine(value => {
+      // Basic check for common TLDs (not exhaustive) and general domain structure
+      // This regex is a common one for basic domain validation.
+      const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,6}$/;
+      return domainRegex.test(value);
+    }, 'Formato de domínio inválido. Use example.com'),
+});
+
+export const updateTakedownRequestSchema = z.object({
+  subject: z.string().min(5, 'Assunto deve ter pelo menos 5 caracteres').max(255, 'Assunto muito longo'),
+  message: z.string().min(20, 'Mensagem deve ter pelo menos 20 caracteres').max(10000, 'Mensagem muito longa')
+});

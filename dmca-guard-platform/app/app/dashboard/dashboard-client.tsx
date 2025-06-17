@@ -11,13 +11,32 @@ import { Session } from 'next-auth' // NOVA importação para tipagem
 import Link from 'next/link'
 import { 
   Shield, Search, AlertTriangle, CheckCircle, TrendingUp,
-  Eye, Mail, Clock, Plus
+  Eye, Mail, Clock, Plus, PlusSquare, FilePlus, ListFilter // Added ListFilter for Whitelist
 } from 'lucide-react'
 import { LoadingSpinner } from '@/components/loading-spinner'
 import { Footer } from '@/components/footer'
 import { StatusBadge } from '@/components/status-badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 // Adicione a importação do StatsCard
 import { StatsCard } from '@/components/stats-card'
@@ -75,6 +94,11 @@ export default function DashboardClient({ session }: DashboardClientProps) {
   
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isAddContentModalOpen, setIsAddContentModalOpen] = useState(false)
+  const [modalError, setModalError] = useState<string | null>(null)
+  enum ContentType { IMAGE = "IMAGE", VIDEO = "VIDEO", AUDIO = "AUDIO", DOCUMENT = "DOCUMENT", OTHER = "OTHER" }
+  const [monitoringSessionsList, setMonitoringSessionsList] = useState<Array<{ id: string; name: string }>>([])
+
 
   useEffect(() => {
     // Verificamos se temos o ID do usuário antes de buscar os dados
@@ -87,6 +111,7 @@ export default function DashboardClient({ session }: DashboardClientProps) {
 
   // A função agora recebe o userId e o envia para a API
   const fetchStats = async (userId: string) => {
+    setIsLoading(true); // Adicionado para garantir que o loading seja ativado
     try {
       // Passamos o userId como um parâmetro de busca na URL
       const response = await fetch(`/api/dashboard/stats?userId=${userId}`)
@@ -100,6 +125,81 @@ export default function DashboardClient({ session }: DashboardClientProps) {
       setIsLoading(false)
     }
   }
+
+  const fetchMonitoringSessions = async () => {
+    if (!session?.user?.id) return;
+    try {
+      const response = await fetch(`/api/monitoring-sessions?userId=${session.user.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setMonitoringSessionsList(data.sessions || []); // Assuming API returns { sessions: [] }
+      } else {
+        console.error('Erro ao buscar sessões de monitoramento:', response.statusText);
+        setMonitoringSessionsList([]); // Define como vazio em caso de erro
+      }
+    } catch (error) {
+      console.error('Erro ao buscar sessões de monitoramento:', error);
+      setMonitoringSessionsList([]); // Define como vazio em caso de erro
+    }
+  };
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchStats(session.user.id);
+      fetchMonitoringSessions(); // Buscar sessões ao carregar o dashboard
+    } else {
+      setIsLoading(false);
+    }
+  }, [session]);
+
+
+  const handleManualAddContent = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setModalError(null); // Limpa erros anteriores
+
+    if (!session?.user?.id) {
+      setModalError("Usuário não autenticado.");
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const data = {
+      monitoringSessionId: formData.get('monitoringSessionId') as string,
+      title: formData.get('title') as string,
+      infringingUrl: formData.get('infringingUrl') as string,
+      platform: formData.get('platform') as string,
+      contentType: formData.get('contentType') as ContentType,
+      userId: session.user.id, // Adiciona userId
+    };
+
+    // Validação básica
+    if (!data.monitoringSessionId || !data.title || !data.infringingUrl || !data.platform || !data.contentType) {
+      setModalError("Todos os campos são obrigatórios.");
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/detected-content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        setIsAddContentModalOpen(false);
+        fetchStats(session.user.id); // Atualiza as estatísticas
+        // TODO: Adicionar toast de sucesso opcional
+      } else {
+        const errorData = await response.json();
+        setModalError(errorData.error || "Erro ao adicionar conteúdo.");
+      }
+    } catch (error) {
+      console.error('Erro ao submeter formulário:', error);
+      setModalError("Ocorreu um erro inesperado. Tente novamente.");
+    }
+  };
 
   // O restante do seu código (o return com o JSX) permanece exatamente o mesmo
   // ... (todo o seu JSX de 300 linhas vai aqui, sem alterações)
@@ -122,6 +222,82 @@ export default function DashboardClient({ session }: DashboardClientProps) {
       <Header />
       
       <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        {/* Modal para Adicionar Conteúdo Manualmente */}
+        <Dialog open={isAddContentModalOpen} onOpenChange={setIsAddContentModalOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Adicionar Conteúdo Detectado Manualmente</DialogTitle>
+              <DialogDescription>
+                Preencha os detalhes do conteúdo infrator que você encontrou.
+                {modalError && <p className="text-red-500 text-sm mt-2">{modalError}</p>}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleManualAddContent}>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="monitoringSessionId" className="text-right">
+                    Sessão
+                  </Label>
+                  <Select name="monitoringSessionId" required>
+                    <SelectTrigger className="col-span-3" id="monitoringSessionId">
+                      <SelectValue placeholder="Selecione uma sessão" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monitoringSessionsList.length === 0 && <SelectItem value="loading" disabled>Carregando sessões...</SelectItem>}
+                      {monitoringSessionsList.map(session => (
+                        <SelectItem key={session.id} value={session.id}>
+                          {session.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="title" className="text-right">
+                    Título
+                  </Label>
+                  <Input id="title" name="title" className="col-span-3" required />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="infringingUrl" className="text-right">
+                    URL Infratora
+                  </Label>
+                  <Input id="infringingUrl" name="infringingUrl" type="url" className="col-span-3" required />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="platform" className="text-right">
+                    Plataforma
+                  </Label>
+                  <Input id="platform" name="platform" className="col-span-3" required />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="contentType" className="text-right">
+                    Tipo
+                  </Label>
+                  <Select name="contentType" required>
+                    <SelectTrigger className="col-span-3" id="contentType">
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.values(ContentType).map(type => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">Cancelar</Button>
+                </DialogClose>
+                <Button type="submit">Submeter</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -254,7 +430,7 @@ export default function DashboardClient({ session }: DashboardClientProps) {
                     Nova Sessão de Monitoramento
                   </Button>
                 </Link>
-                <Link href="/takedowns">
+                <Link href="/dashboard/takedown-requests"> {/* UPDATED LINK */}
                   <Button className="w-full justify-start" variant="outline">
                     <Mail className="h-4 w-4 mr-2" />
                     Ver Takedowns
@@ -264,6 +440,16 @@ export default function DashboardClient({ session }: DashboardClientProps) {
                   <Button className="w-full justify-start" variant="outline">
                     <TrendingUp className="h-4 w-4 mr-2" />
                     Upgrade de Plano
+                  </Button>
+                </Link>
+                <Button className="w-full justify-start" variant="outline" onClick={() => setIsAddContentModalOpen(true)}>
+                  <FilePlus className="h-4 w-4 mr-2" />
+                  Adicionar Conteúdo Detectado Manualmente
+                </Button>
+                <Link href="/dashboard/whitelist">
+                  <Button className="w-full justify-start" variant="outline">
+                    <ListFilter className="h-4 w-4 mr-2" />
+                    Gerenciar Whitelist de Domínios
                   </Button>
                 </Link>
               </CardContent>
@@ -289,7 +475,7 @@ export default function DashboardClient({ session }: DashboardClientProps) {
                   Status das suas solicitações de remoção
                 </CardDescription>
               </div>
-              <Link href="/takedowns">
+                <Link href="/dashboard/takedown-requests"> {/* UPDATED LINK */}
                 <Button variant="outline" size="sm">
                   Ver Todos
                 </Button>
