@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -6,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { brandProfileSchema } from '@/lib/validations'
 import { createAuditLog, getClientIP } from '@/lib/audit'
 import { canPerformAction, getPlanLimits } from '@/lib/plans'
+import { generateNameVariants } from '@/lib/name-generator'
 
 export const dynamic = 'force-dynamic'
 
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         description: validatedData.description,
         officialUrls: validatedData.officialUrls,
         socialMedia: validatedData.socialMedia,
-        keywords: validatedData.keywords
+        keywords: generateNameVariants(validatedData.brandName)
       }
     })
 
@@ -112,3 +112,4 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+

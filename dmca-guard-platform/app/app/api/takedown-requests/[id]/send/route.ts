@@ -90,3 +90,58 @@ export async function POST(
     return NextResponse.json({ error: 'Erro interno do servidor.' }, { status: 500 });
   }
 }
+// dmca-guard-platform/app/app/api/takedown-requests/[id]/send/route.ts
+
+import { NextResponse } from 'next/server';
+import { Resend } from 'resend';
+import { prisma } from '@/lib/db';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export async function POST(req: Request, { params }: { params: { id: string } }) {
+  console.log("--- [SEND API] Nova requisição recebida ---");
+
+  if (!process.env.RESEND_SENDER_FROM_EMAIL) {
+    console.error("!!! ERRO CRÍTICO: Variável RESEND_SENDER_FROM_EMAIL não definida.");
+    return NextResponse.json({ error: "Resend config missing" }, { status: 500 });
+  }
+
+  try {
+    const takedown = await prisma.takedownRequest.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!takedown) {
+      return NextResponse.json({ error: "TakedownRequest não encontrada" }, { status: 404 });
+    }
+
+    if (!takedown.recipientEmail) {
+      return NextResponse.json({ error: "Destinatário não informado" }, { status: 400 });
+    }
+
+    // Envia o e-mail
+    const result = await resend.emails.send({
+      from: process.env.RESEND_SENDER_FROM_EMAIL,
+      to: takedown.recipientEmail,
+      subject: takedown.subject || "Notificação DMCA",
+      html: takedown.message || "<p>Segue sua notificação DMCA.</p>",
+    });
+
+    console.log("[SEND API] Resposta do Resend:", result);
+
+    if (result.error) {
+      throw new Error(`Erro ao enviar e-mail via Resend: ${result.error}`);
+    }
+
+    // Atualiza o status para SENT
+    await prisma.takedownRequest.update({
+      where: { id: params.id },
+      data: { status: 'SENT', sentAt: new Date() },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[SEND API] ERRO:", err);
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Erro desconhecido" }, { status: 500 });
+  }
+}

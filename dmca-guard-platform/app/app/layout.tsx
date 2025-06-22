@@ -1,14 +1,13 @@
-
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
+import { Inter } from 'next/font/google'
+import SessionWrapper from '@/components/session-wrapper'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
-import { Providers } from '@/components/providers'
+import Providers from '@/components/providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
-export const metadata: Metadata = {
+export const metadata = {
   title: 'DMCA Guard - Proteção de Conteúdo Digital',
   description: 'Plataforma SaaS para detecção e remoção automatizada de conteúdo não autorizado',
   keywords: 'DMCA, proteção de conteúdo, takedown, direitos autorais, monitoramento',
@@ -22,17 +21,20 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={inter.className}>
-        <Providers>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-            <Toaster />
-          </ThemeProvider>
-        </Providers>
+        <SessionWrapper>
+          <Providers>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {/* O Header NÃO é renderizado aqui globalmente! */}
+              {children}
+              <Toaster />
+            </ThemeProvider>
+          </Providers>
+        </SessionWrapper>
       </body>
     </html>
   )

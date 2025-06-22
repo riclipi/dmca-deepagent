@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button' 
@@ -139,7 +139,7 @@ export function Header() {
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Perfis de Marca', href: '/brand-profiles' },
     { name: 'Monitoramento', href: '/monitoring' },
-    { name: 'Takedowns', href: '/takedowns' },
+    { name: 'Takedowns', href: '/takedown-requests' }, // Corrigido para /takedown-requests
     { name: 'Planos', href: '/pricing' }
   ]
 
@@ -190,88 +190,13 @@ export function Header() {
                   {session.user.planType}
                 </Badge>
 
-                {/* Notifications Popover */}
-                <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="relative" onClick={handleNotificationIconClick}>
-                      <Bell className="h-5 w-5" />
-                      {unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
-                          {unreadCount}
-                        </span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 mr-4 mt-1 p-0" align="end">
-                    <div className="p-4">
-                      <h4 className="text-sm font-medium">Notificações</h4>
-                    </div>
-                    <Separator />
-                    {isLoadingNotifications ? (
-                      <div className="p-4 text-center">
-                        <p className="text-sm text-muted-foreground">Carregando...</p>
-                      </div>
-                    ) : notifications.length === 0 ? (
-                      <div className="p-4 text-center">
-                        <MailWarning className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">Nenhuma notificação nova.</p>
-                      </div>
-                    ) : (
-                      <>
-                        <ScrollArea className="h-[300px]">
-                          <div className="p-2 space-y-1">
-                            {notifications.map((notification) => (
-                              <div
-                                key={notification.id}
-                                className={`p-3 rounded-md transition-colors ${
-                                  notification.isRead
-                                    ? 'bg-transparent hover:bg-accent/50'
-                                    : 'bg-primary/10 hover:bg-primary/20'
-                                }`}
-                              >
-                                <div className="flex items-start justify-between">
-                                  <h5 className={`text-xs font-semibold ${!notification.isRead ? 'text-primary' : ''}`}>
-                                    {notification.title}
-                                  </h5>
-                                  {!notification.isRead && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon_sm"
-                                      className="h-6 w-6 text-muted-foreground hover:text-primary"
-                                      onClick={() => handleMarkAsRead(notification.id)}
-                                      title="Marcar como lida"
-                                    >
-                                      <Check className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                                <p className="text-xs text-muted-foreground truncate pr-4">
-                                  {notification.message}
-                                </p>
-                                <p className="text-xs text-muted-foreground/70 mt-1">
-                                  {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: ptBR })}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        </ScrollArea>
-                        <Separator />
-                        {notifications.some(n => !n.isRead) && (
-                           <div className="p-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              onClick={handleMarkAllAsRead}
-                            >
-                              Marcar todas como lidas
-                            </Button>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </PopoverContent>
-                </Popover>
+                {/* Notifications */}
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="h-5 w-5" />
+                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                    3
+                  </span>
+                </Button>
 
                 {/* User Menu */}
                 <div className="relative group">

@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -159,31 +158,20 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Simular envio de email (em produção, usar SendGrid)
-    setTimeout(async () => {
-      try {
-        await prisma.takedownRequest.update({
-          where: { id: takedownRequest.id },
-          data: {
-            status: 'SENT',
-            sentAt: new Date(),
-            attempts: 1
-          }
-        })
-
-        // Criar notificação
-        await prisma.notification.create({
-          data: {
-            userId: session.user.id,
-            title: 'Takedown DMCA enviado',
-            message: `Solicitação de remoção enviada para ${validatedData.platform}`,
-            type: 'takedown_sent'
-          }
-        })
-      } catch (error) {
-        console.error('Erro ao atualizar status do takedown:', error)
+    // Chamar endpoint de envio de e-mail após criar a takedown request
+    try {
+      const sendRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/takedown-requests/${takedownRequest.id}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipientEmail: validatedData.recipientEmail })
+      });
+      const sendData = await sendRes.json();
+      if (!sendRes.ok) {
+        console.error('Erro ao enviar e-mail via Resend:', sendData);
       }
-    }, 2000)
+    } catch (sendErr) {
+      console.error('Erro ao chamar endpoint de envio de e-mail:', sendErr);
+    }
 
     // Log de auditoria
     await createAuditLog(

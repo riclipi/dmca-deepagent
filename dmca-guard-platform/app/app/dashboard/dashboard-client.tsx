@@ -206,7 +206,6 @@ export default function DashboardClient({ session }: DashboardClientProps) {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center h-64">
             <LoadingSpinner size="lg" />
@@ -219,7 +218,6 @@ export default function DashboardClient({ session }: DashboardClientProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
       
       <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         {/* Modal para Adicionar Conteúdo Manualmente */}
@@ -424,11 +422,13 @@ export default function DashboardClient({ session }: DashboardClientProps) {
                     Novo Perfil de Marca
                   </Button>
                 </Link>
-                <Link href="/monitoring/new">
-                  <Button className="w-full justify-start" variant="outline">
-                    <Search className="h-4 w-4 mr-2" />
-                    Nova Sessão de Monitoramento
-                  </Button>
+                <Link href="/monitoring/new" legacyBehavior>
+                  <a>
+                    <Button className="w-full justify-start" variant="outline">
+                      <Search className="h-4 w-4 mr-2" />
+                      Nova Sessão de Monitoramento
+                    </Button>
+                  </a>
                 </Link>
                 <Link href="/dashboard/takedown-requests"> {/* UPDATED LINK */}
                   <Button className="w-full justify-start" variant="outline">

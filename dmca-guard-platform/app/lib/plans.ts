@@ -15,7 +15,7 @@ export const plans = {
       brandProfiles: 5,
       monitoringSessions: 3,
       takedownsPerMonth: 10,
-      scanFrequency: 168 // 1 semana em horas
+      scanFrequency: 1 // 1 semana em horas
     }
   },
   BASIC: {

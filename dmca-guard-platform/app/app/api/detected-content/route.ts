@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -22,12 +21,19 @@ export async function GET(request: NextRequest) {
 
     const where: any = {
       userId: session.user.id
+      // Removido: condição de filtro pelo campo status
     }
 
-    if (status === 'confirmed') {
-      where.isConfirmed = true
-    } else if (status === 'pending') {
-      where.isConfirmed = false
+    // Substituir o bloco antigo de status:
+    // if (status === 'confirmed') {
+    //   where.isConfirmed = true
+    // } else if (status === 'pending') {
+    //   where.isConfirmed = false
+    // }
+
+    // Nova lógica correta:
+    if (status) {
+      where.status = status;
     }
 
     if (platform) {
@@ -42,12 +48,12 @@ export async function GET(request: NextRequest) {
       prisma.detectedContent.findMany({
         where,
         include: {
-          brandProfile: {
-            select: {
-              id: true,
-              brandName: true
-            }
-          },
+        brandProfile: {
+        select: {
+        id: true,
+        brandName: true // <-- Correto
+  }
+},
           monitoringSession: {
             select: {
               id: true,
@@ -117,7 +123,7 @@ export async function POST(request: NextRequest) {
         userId: session.user.id,
         brandProfileId: monitoringSession.brandProfileId,
         monitoringSessionId,
-        title,
+        title: 'Conteúdo Infrator de Teste',
         infringingUrl,
         platform,
         contentType,
