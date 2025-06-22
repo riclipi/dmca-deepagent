@@ -15,3 +15,6 @@ npm-debug.log*
 .DS_Store
 
 /app/credentials.json
+dmca-guard-platform/app/credentials.json
+dmca-guard-platform/.env.local
+dmca-guard-platform/.env
