@@ -1,0 +1,20 @@
+# Dependencies
+/node_modules
+
+# Next.js build output
+/.next/
+/out/
+
+# Local Environment Files
+.env
+.env.local
+
+# Logs & Misc
+npm-debug.log*
+*.log
+.DS_Store
+
+/app/credentials.json
+dmca-guard-platform/app/credentials.json
+dmca-guard-platform/.env.local
+dmca-guard-platform/.env
