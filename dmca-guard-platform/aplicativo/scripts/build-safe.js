@@ -1,14 +1,33 @@
 #!/usr/bin/env node
 
-// Script que permite build mesmo sem DATABASE_URL
-// Define uma URL temporária para o Prisma não falhar
+// Script que permite build mesmo sem variáveis de ambiente completas
+// Define valores temporários para não falhar no build
 
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "postgresql://temp:temp@localhost:5432/temp";
-  console.log('⚠️  DATABASE_URL temporária definida para build');
-}
+console.log('🚀 DMCA Guard - Build Seguro para Produção');
+console.log('==========================================');
 
-// Executar prisma generate
+// Definir variáveis temporárias se não existirem
+const envDefaults = {
+  DATABASE_URL: "postgresql://temp:temp@localhost:5432/temp",
+  NEXTAUTH_SECRET: "temp-secret-for-build-only",
+  NEXTAUTH_URL: "http://localhost:3000",
+  RESEND_API_KEY: "re_temp_key_for_build",
+  RESEND_SENDER_FROM_EMAIL: "temp@example.com",
+  RESEND_DOMAIN: "example.com",
+  RESEND_SENDER_NAME: "Temp",
+  SUPER_USER_EMAIL: "temp@example.com",
+  NODE_ENV: "production"
+};
+
+// Aplicar defaults apenas se não existirem
+Object.entries(envDefaults).forEach(([key, value]) => {
+  if (!process.env[key]) {
+    process.env[key] = value;
+    console.log(`⚠️  ${key} temporário definido para build`);
+  }
+});
+
+// Executar build
 const { execSync } = require('child_process');
 
 try {

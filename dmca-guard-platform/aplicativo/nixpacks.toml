@@ -3,7 +3,7 @@ NODE_ENV = "production"
 NEXT_TELEMETRY_DISABLED = "1"
 
 [phases.setup]
-nixPkgs = ["nodejs-18_x"]
+nixPkgs = ["nodejs-18_x", "openssl", "pkg-config"]
 
 [phases.install]
 cmds = [

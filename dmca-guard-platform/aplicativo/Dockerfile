@@ -1,8 +1,11 @@
 # Use Node.js 18 Alpine
 FROM node:18-alpine AS deps
 
-# Check libc compatibility
-RUN apk add --no-cache libc6-compat
+# Install necessary packages including OpenSSL 3
+RUN apk add --no-cache \
+    libc6-compat \
+    openssl \
+    openssl-dev
 
 WORKDIR /app
 
@@ -13,11 +16,17 @@ COPY prisma ./prisma/
 # Install dependencies
 RUN npm ci --include=dev
 
-# Generate Prisma client
+# Generate Prisma client with correct OpenSSL
 RUN npx prisma generate
 
 # Build stage
 FROM node:18-alpine AS builder
+
+# Install OpenSSL 3
+RUN apk add --no-cache \
+    libc6-compat \
+    openssl \
+    openssl-dev
 
 WORKDIR /app
 
@@ -32,11 +41,21 @@ COPY . .
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Set temporary env vars for build (Railway will override these)
+ENV DATABASE_URL="postgresql://temp:temp@localhost:5432/temp"
+ENV NEXTAUTH_SECRET="temp-secret-for-build"
+ENV RESEND_API_KEY="re_temp_key"
+
 # Build application
 RUN npm run build
 
 # Production stage
 FROM node:18-alpine AS runner
+
+# Install OpenSSL 3 for runtime
+RUN apk add --no-cache \
+    libc6-compat \
+    openssl
 
 WORKDIR /app
 
