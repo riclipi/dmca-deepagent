@@ -160,7 +160,14 @@ export async function POST(request: NextRequest) {
 
     // Chamar endpoint de envio de e-mail após criar a takedown request
     try {
-      const sendRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/takedown-requests/${takedownRequest.id}/send`, {
+      const baseUrl = process.env.NEXTAUTH_URL;
+      if (!baseUrl) {
+        console.error('NEXTAUTH_URL is not set. Email sending will fail.');
+        // Optionally, you could throw an error here or handle it differently
+        // depending on desired behavior when NEXTAUTH_URL is missing.
+        // For now, we'll log and let the fetch attempt fail, which will be caught.
+      }
+      const sendRes = await fetch(`${baseUrl}/api/takedown-requests/${takedownRequest.id}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recipientEmail: validatedData.recipientEmail })
