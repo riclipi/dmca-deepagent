@@ -10,8 +10,10 @@
     "prisma": "prisma",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "db:seed-test": "node scripts/seed-test-content.js"
+    "db:seed-test": "node scripts/seed-test-content.js",
+    "postbuild": "prisma migrate deploy"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
