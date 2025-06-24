@@ -87,6 +87,11 @@ export function canPerformAction(
   action: string,
   currentUsage: number
 ): boolean {
+  // Adicionar esta verificação para o Super User
+  if (planType === 'SUPER_USER') {
+    return true;
+  }
+
   const limits = getPlanLimits(planType)
   
   switch (action) {
