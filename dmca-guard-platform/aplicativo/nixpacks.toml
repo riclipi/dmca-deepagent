@@ -1,9 +1,9 @@
 [variables]
 NODE_ENV = "production"
-NIXPACKS_NODE_VERSION = "18"
+NEXT_TELEMETRY_DISABLED = "1"
 
 [phases.setup]
-nixPkgs = ["nodejs-18_x", "npm-9_x"]
+nixPkgs = ["nodejs-18_x"]
 
 [phases.install]
 cmds = [
@@ -12,7 +12,9 @@ cmds = [
 ]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = [
+  "npm run build"
+]
 
 [start]
 cmd = "npm start"
