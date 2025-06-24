@@ -41,7 +41,7 @@ interface Notification {
 
 
 export function Header() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -180,7 +180,7 @@ export function Header() {
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
-            {session?.user ? ( // Verificação mais segura
+            {status === "authenticated" && session?.user ? (
               <>
                 {/* Plan Badge */}
                 <Badge 
@@ -191,46 +191,109 @@ export function Header() {
                 </Badge>
 
                 {/* Notifications */}
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-5 w-5" />
-                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                    3
-                  </span>
-                </Button>
+                <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="relative" onClick={handleNotificationIconClick}>
+                      <Bell className="h-5 w-5" />
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-0">
+                    <div className="flex justify-between items-center p-4 border-b">
+                      <h3 className="text-lg font-semibold">Notificações</h3>
+                      {notifications.length > 0 && unreadCount > 0 && (
+                         <Button variant="link" size="sm" onClick={handleMarkAllAsRead} className="text-xs">
+                           Marcar todas como lidas
+                         </Button>
+                       )}
+                    </div>
+                    {isLoadingNotifications ? (
+                      <div className="p-4 text-center">Carregando...</div>
+                    ) : notifications.length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">Nenhuma notificação nova.</div>
+                    ) : (
+                      <ScrollArea className="h-[300px]">
+                        {notifications.map((notification) => (
+                          <div key={notification.id} className={`p-3 border-b ${!notification.isRead ? 'bg-accent' : ''}`}>
+                            <div className="flex items-start space-x-3">
+                              <MailWarning className={`h-5 w-5 mt-1 ${!notification.isRead ? 'text-primary' : 'text-muted-foreground'}`} />
+                              <div>
+                                <p className={`text-sm font-medium ${!notification.isRead ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                  {notification.title}
+                                </p>
+                                <p className={`text-xs ${!notification.isRead ? 'text-foreground/80' : 'text-muted-foreground/80'}`}>
+                                  {notification.message}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: ptBR })}
+                                </p>
+                              </div>
+                            </div>
+                            {!notification.isRead && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="mt-2 text-xs"
+                                onClick={() => handleMarkAsRead(notification.id)}
+                              >
+                                <Check className="h-3 w-3 mr-1" /> Marcar como lida
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </ScrollArea>
+                    )}
+                     {notifications.length > 0 && (
+                       <div className="p-2 border-t text-center">
+                         <Link href="/notifications" onClick={() => setIsPopoverOpen(false)}>
+                           <Button variant="link" className="text-xs">Ver todas</Button>
+                         </Link>
+                       </div>
+                     )}
+                  </PopoverContent>
+                </Popover>
 
                 {/* User Menu */}
-                <div className="relative group">
-                  <Button variant="ghost" size="icon">
-                    <User className="h-5 w-5" />
-                  </Button>
-                  
-                  <div className="absolute right-0 mt-2 w-56 bg-background border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <User className="h-5 w-5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56">
                     <div className="py-1">
                       <div className="px-4 py-2 text-sm text-muted-foreground border-b">
                         <p className="font-semibold">{session.user.name}</p>
-                        {/* --- ALTERAÇÃO 1: ADICIONADO O E-MAIL --- */}
                         <p className="truncate">{session.user.email}</p>
                       </div>
                       <Link
                         href="/settings"
-                        className="flex items-center px-4 py-2 text-sm hover:bg-accent"
+                        className="flex items-center px-4 py-2 text-sm hover:bg-accent rounded-md"
                       >
                         <Settings className="h-4 w-4 mr-2" />
                         Configurações
                       </Link>
                       <button
-                        // --- ALTERAÇÃO 2: MELHORADA A FUNÇÃO signOut ---
                         onClick={() => signOut({ callbackUrl: '/' })}
-                        className="flex items-center w-full px-4 py-2 text-sm hover:bg-accent text-left"
+                        className="flex items-center w-full px-4 py-2 text-sm hover:bg-accent text-left rounded-md"
                       >
                         <LogOut className="h-4 w-4 mr-2" />
                         Sair
                       </button>
                     </div>
-                  </div>
-                </div>
+                  </PopoverContent>
+                </Popover>
               </>
-            ) : (
+            ) : status === "loading" ? (
+              // Optional: Show a loading state for the user menu area
+              <div className="flex items-center space-x-2">
+                <div className="h-8 w-20 bg-muted rounded animate-pulse"></div> {/* Placeholder for buttons */}
+              </div>
+            ) : ( // Unauthenticated or error status
               <div className="flex items-center space-x-2">
                 <Link href="/auth/login">
                   <Button variant="ghost">Entrar</Button>
