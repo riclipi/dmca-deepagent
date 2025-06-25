@@ -40,6 +40,7 @@ import {
 
 // Adicione a importação do StatsCard
 import { StatsCard } from '@/components/stats-card'
+import { RealTimeScanDashboard } from '@/components/dashboard/real-time-scan-dashboard'
 
 
 // ... (a interface DashboardStats permanece a mesma)
@@ -98,6 +99,8 @@ export default function DashboardClient({ session }: DashboardClientProps) {
   const [modalError, setModalError] = useState<string | null>(null)
   enum ContentType { IMAGE = "IMAGE", VIDEO = "VIDEO", AUDIO = "AUDIO", DOCUMENT = "DOCUMENT", OTHER = "OTHER" }
   const [monitoringSessionsList, setMonitoringSessionsList] = useState<Array<{ id: string; name: string }>>([])
+  const [brandProfiles, setBrandProfiles] = useState<Array<{ id: string; brandName: string }>>([])
+  const [isFetchingBrandProfiles, setIsFetchingBrandProfiles] = useState(false)
 
 
   useEffect(() => {
@@ -107,6 +110,7 @@ export default function DashboardClient({ session }: DashboardClientProps) {
       if (session?.user?.id) {
         await fetchStats(session.user.id, abortController.signal)
         await fetchMonitoringSessions(abortController.signal)
+        await fetchBrandProfiles(abortController.signal)
       } else {
         setIsLoading(false)
       }
@@ -159,6 +163,34 @@ export default function DashboardClient({ session }: DashboardClientProps) {
       if (!signal?.aborted) {
         console.error('Erro ao buscar sessões de monitoramento:', error)
         setMonitoringSessionsList([])
+      }
+    }
+  }
+
+  const fetchBrandProfiles = async (signal?: AbortSignal) => {
+    if (!session?.user?.id) return
+    setIsFetchingBrandProfiles(true)
+    try {
+      const response = await fetch('/api/brand-profiles', { signal })
+      if (response.ok) {
+        const data = await response.json()
+        if (!signal?.aborted) {
+          setBrandProfiles(data)
+        }
+      } else {
+        if (!signal?.aborted) {
+          console.error('Erro ao buscar perfis de marca:', response.statusText)
+          setBrandProfiles([])
+        }
+      }
+    } catch (error) {
+      if (!signal?.aborted) {
+        console.error('Erro ao buscar perfis de marca:', error)
+        setBrandProfiles([])
+      }
+    } finally {
+      if (!signal?.aborted) {
+        setIsFetchingBrandProfiles(false)
       }
     }
   }
@@ -527,6 +559,26 @@ export default function DashboardClient({ session }: DashboardClientProps) {
             </CardContent>
           </Card>
         </motion.div>
+
+        {/* Real-Time Scan Dashboard */}
+        {brandProfiles.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+            className="mt-8"
+          >
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-foreground mb-2">
+                Live Protection Monitoring
+              </h2>
+              <p className="text-muted-foreground">
+                Real-time leak detection and threat analysis powered by advanced scanning technology
+              </p>
+            </div>
+            <RealTimeScanDashboard brandProfiles={brandProfiles} />
+          </motion.div>
+        )}
       </main>
 
       <Footer />
