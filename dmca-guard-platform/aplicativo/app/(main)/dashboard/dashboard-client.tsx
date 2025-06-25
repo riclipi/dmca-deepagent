@@ -41,6 +41,7 @@ import {
 // Adicione a importação do StatsCard
 import { StatsCard } from '@/components/stats-card'
 import { RealTimeScanDashboard } from '@/components/dashboard/real-time-scan-dashboard'
+import RealSearchMonitor from '@/components/dashboard/real-search-monitor'
 
 
 // ... (a interface DashboardStats permanece a mesma)
@@ -560,12 +561,45 @@ export default function DashboardClient({ session }: DashboardClientProps) {
           </Card>
         </motion.div>
 
-        {/* Real-Time Scan Dashboard */}
+        {/* Real Search Monitor - PRIORIDADE #1 */}
         {brandProfiles.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.5 }}
+            className="mt-8"
+          >
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-foreground mb-2">
+                🔍 Busca Real de Vazamentos
+              </h2>
+              <p className="text-muted-foreground">
+                Execute buscas reais em múltiplas plataformas para encontrar conteúdo vazado
+              </p>
+            </div>
+            <RealSearchMonitor 
+              brandProfiles={brandProfiles.map(p => ({ 
+                id: p.id, 
+                brandName: p.brandName, 
+                keywords: [], 
+                safeKeywords: [] 
+              }))}
+              onSearchComplete={(results) => {
+                // Atualizar stats após busca
+                if (session?.user?.id) {
+                  fetchStats(session.user.id);
+                }
+              }}
+            />
+          </motion.div>
+        )}
+
+        {/* Real-Time Scan Dashboard */}
+        {brandProfiles.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.6 }}
             className="mt-8"
           >
             <div className="mb-6">
