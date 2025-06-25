@@ -33,11 +33,12 @@ model User {
   notifications      Notification[]
   subscriptions      Subscription[]
   takedownRequests   TakedownRequest[]
-  
+
   // New DMCA automation relations
-  keywordSearches    KeywordSearch[]
-  referenceImages    ReferenceImage[]
-  dmcaScores         DmcaScore[]
+  keywordSearches KeywordSearch[]
+  referenceImages ReferenceImage[]
+  dmcaScores      DmcaScore[]
+  keywordReviews  KeywordReview[]
 
   @@map("users")
 }
@@ -55,21 +56,21 @@ model DomainWhitelist {
 }
 
 model BrandProfile {
-  id                 String              @id @default(cuid())
-  userId             String
-  brandName          String
-  description        String?
-  officialUrls       String[]
-  socialMedia        Json?
-  keywords           String[]
-  
+  id           String   @id @default(cuid())
+  userId       String
+  brandName    String
+  description  String?
+  officialUrls String[]
+  socialMedia  Json?
+  keywords     String[]
+
   // Safe keyword generation fields
-  safeKeywords       String[]            // keywords aprovadas automaticamente
-  moderateKeywords   String[]            // keywords que precisam review
-  dangerousKeywords  String[]            // keywords bloqueadas
-  keywordConfig      Json?               // configuração de geração
-  lastKeywordUpdate  DateTime?
-  
+  safeKeywords      String[] // keywords aprovadas automaticamente
+  moderateKeywords  String[] // keywords que precisam review
+  dangerousKeywords String[] // keywords bloqueadas
+  keywordConfig     Json? // configuração de geração
+  lastKeywordUpdate DateTime?
+
   isActive           Boolean             @default(true)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -82,35 +83,35 @@ model BrandProfile {
 }
 
 model MonitoringSession {
-  id              String            @id @default(cuid())
+  id              String   @id @default(cuid())
   userId          String
   brandProfileId  String
   name            String
   description     String?
   targetPlatforms String[]
-  
+
   // Keywords integration - uses brandProfile.safeKeywords instead of separate searchTerms
-  useProfileKeywords Boolean         @default(true)
-  customKeywords     String[]        // keywords adicionais específicas desta sessão
-  excludeKeywords    String[]        // keywords para excluir desta sessão
-  
+  useProfileKeywords Boolean  @default(true)
+  customKeywords     String[] // keywords adicionais específicas desta sessão
+  excludeKeywords    String[] // keywords para excluir desta sessão
+
   // Real-time monitoring fields
-  status          SessionStatus     @default(IDLE)
-  currentKeyword  String?           // keyword sendo processada atualmente
-  progress        Int               @default(0)  // 0-100%
-  totalKeywords   Int               @default(0)  // total de keywords a processar
-  processedKeywords Int             @default(0)  // keywords já processadas
-  
+  status            SessionStatus @default(IDLE)
+  currentKeyword    String? // keyword sendo processada atualmente
+  progress          Int           @default(0) // 0-100%
+  totalKeywords     Int           @default(0) // total de keywords a processar
+  processedKeywords Int           @default(0) // keywords já processadas
+
   // Scheduling
-  lastScanAt      DateTime?
-  nextScanAt      DateTime?
-  scanFrequency   Int               @default(24)
-  isActive        Boolean           @default(true)
-  
+  lastScanAt    DateTime?
+  nextScanAt    DateTime?
+  scanFrequency Int       @default(24)
+  isActive      Boolean   @default(true)
+
   // Results tracking
-  resultsFound    Int               @default(0)
-  lastResultAt    DateTime?
-  
+  resultsFound Int       @default(0)
+  lastResultAt DateTime?
+
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   detectedContent DetectedContent[]
@@ -121,7 +122,7 @@ model MonitoringSession {
 }
 
 model DetectedContent {
-  id                  String            @id @default(cuid())
+  id                  String      @id @default(cuid())
   userId              String
   brandProfileId      String
   monitoringSessionId String
@@ -132,27 +133,27 @@ model DetectedContent {
   platform            String
   thumbnailUrl        String?
   similarity          Float?
-  priority            Priority          @default(MEDIUM)
-  isConfirmed         Boolean           @default(false)
-  isProcessed         Boolean           @default(false)
-  detectedAt          DateTime          @default(now())
+  priority            Priority    @default(MEDIUM)
+  isConfirmed         Boolean     @default(false)
+  isProcessed         Boolean     @default(false)
+  detectedAt          DateTime    @default(now())
   confirmedAt         DateTime?
   processedAt         DateTime?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-  
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
   // DMCA automation fields
   dmcaContactInfo     DmcaContactInfo?
-  confidence          Int?              @default(0)
+  confidence          Int?             @default(0)
   keywordSource       String?
   platformType        String?
   imagesFound         String[]
   faceMatchConfidence Float?
-  
-  brandProfile        BrandProfile      @relation(fields: [brandProfileId], references: [id], onDelete: Cascade)
-  monitoringSession   MonitoringSession @relation(fields: [monitoringSessionId], references: [id], onDelete: Cascade)
-  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  takedownRequests    TakedownRequest[]
+
+  brandProfile      BrandProfile      @relation(fields: [brandProfileId], references: [id], onDelete: Cascade)
+  monitoringSession MonitoringSession @relation(fields: [monitoringSessionId], references: [id], onDelete: Cascade)
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  takedownRequests  TakedownRequest[]
 
   @@map("detected_content")
 }
@@ -324,50 +325,50 @@ enum Priority {
 
 // New models for DMCA automation
 model DmcaContactInfo {
-  id                 String            @id @default(cuid())
-  detectedContentId  String            @unique
-  email              String?
-  isCompliant        Boolean           @default(false)
-  contactPage        String?
-  detectedMethod     String?
-  confidence         Int               @default(0)
-  additionalEmails   String[]
-  lastCheckedAt      DateTime          @default(now())
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  detectedContent    DetectedContent   @relation(fields: [detectedContentId], references: [id], onDelete: Cascade)
+  id                String          @id @default(cuid())
+  detectedContentId String          @unique
+  email             String?
+  isCompliant       Boolean         @default(false)
+  contactPage       String?
+  detectedMethod    String?
+  confidence        Int             @default(0)
+  additionalEmails  String[]
+  lastCheckedAt     DateTime        @default(now())
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  detectedContent   DetectedContent @relation(fields: [detectedContentId], references: [id], onDelete: Cascade)
 
   @@map("dmca_contact_info")
 }
 
 model KeywordSearch {
-  id              String           @id @default(cuid())
-  userId          String
-  keyword         String
-  platform        String
-  lastSearchedAt  DateTime?
-  resultsCount    Int              @default(0)
-  effectiveness   Float?           @default(0)
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  searchResults   SearchResult[]
+  id             String         @id @default(cuid())
+  userId         String
+  keyword        String
+  platform       String
+  lastSearchedAt DateTime?
+  resultsCount   Int            @default(0)
+  effectiveness  Float?         @default(0)
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  searchResults  SearchResult[]
 
   @@unique([userId, keyword, platform], name: "user_keyword_platform")
   @@map("keyword_searches")
 }
 
 model SearchResult {
-  id              String         @id @default(cuid())
+  id              String        @id @default(cuid())
   keywordSearchId String
   url             String
   title           String?
   snippet         String?
-  source          String         // 'google', 'bing', 'serper'
+  source          String // 'google', 'bing', 'serper'
   rankPosition    Int?
-  foundAt         DateTime       @default(now())
-  keywordSearch   KeywordSearch  @relation(fields: [keywordSearchId], references: [id], onDelete: Cascade)
+  foundAt         DateTime      @default(now())
+  keywordSearch   KeywordSearch @relation(fields: [keywordSearchId], references: [id], onDelete: Cascade)
 
   @@map("search_results")
 }
@@ -376,7 +377,7 @@ model ReferenceImage {
   id           String       @id @default(cuid())
   userId       String
   profileId    String
-  faceId       String       // AWS Rekognition Face ID
+  faceId       String // AWS Rekognition Face ID
   imageUrl     String?
   confidence   Float        @default(0)
   isActive     Boolean      @default(true)
@@ -388,35 +389,35 @@ model ReferenceImage {
 }
 
 model DmcaScore {
-  id               String   @id @default(cuid())
-  userId           String
-  overallScore     Int
-  activeThreats    Int?
-  removalSuccess   Int?
-  responseTime     Int?
-  coverage         Int?
-  level            String   // 'Critical', 'Warning', 'Good', 'Excellent'
-  calculatedAt     DateTime @default(now())
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  userId         String
+  overallScore   Int
+  activeThreats  Int?
+  removalSuccess Int?
+  responseTime   Int?
+  coverage       Int?
+  level          String // 'Critical', 'Warning', 'Good', 'Excellent'
+  calculatedAt   DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("dmca_scores")
 }
 
 model KeywordReview {
-  id              String         @id @default(cuid())
-  userId          String
-  brandProfileId  String
-  keyword         String
-  riskScore       Int            // 0-100
-  riskReasons     String[]
-  status          ReviewStatus   @default(PENDING)
-  reviewedBy      String?        // userId who reviewed
-  reviewedAt      DateTime?
-  reviewNotes     String?
-  isApproved      Boolean?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String       @id @default(cuid())
+  userId         String
+  brandProfileId String
+  keyword        String
+  riskScore      Int // 0-100
+  riskReasons    String[]
+  status         ReviewStatus @default(PENDING)
+  reviewedBy     String? // userId who reviewed
+  reviewedAt     DateTime?
+  reviewNotes    String?
+  isApproved     Boolean?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, brandProfileId, keyword], name: "user_profile_keyword")
   @@map("keyword_reviews")
