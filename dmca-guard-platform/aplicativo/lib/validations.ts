@@ -33,8 +33,47 @@ export const monitoringSessionSchema = z.object({
   description: z.string().optional(),
   brandProfileId: z.string(),
   targetPlatforms: z.array(z.string()),
-  searchTerms: z.array(z.string()),
-  scanFrequency: z.number().min(1).max(168) // 1 hora a 1 semana
+  useProfileKeywords: z.boolean().default(true),
+  customKeywords: z.array(z.string()).default([]),
+  excludeKeywords: z.array(z.string()).default([]),
+  scanFrequency: z.number().min(1).max(168), // 1 hora a 1 semana
+  // Backward compatibility
+  searchTerms: z.array(z.string()).optional()
+})
+
+export const safeKeywordConfigSchema = z.object({
+  baseName: z.string().min(2, 'Nome base deve ter pelo menos 2 caracteres'),
+  minLength: z.number().min(3).max(10).default(4),
+  maxVariations: z.number().min(5).max(100).default(30),
+  dangerousPatterns: z.array(z.string()).default([]),
+  includeLeetspeakLight: z.boolean().default(true),
+  includeSeparators: z.boolean().default(true),
+  includeSpacing: z.boolean().default(true)
+})
+
+export const keywordReviewSchema = z.object({
+  reviewId: z.string(),
+  action: z.enum(['approve', 'reject']),
+  notes: z.string().optional()
+})
+
+export const bulkKeywordReviewSchema = z.object({
+  reviewIds: z.array(z.string()).min(1, 'Pelo menos um review deve ser selecionado'),
+  action: z.enum(['approve', 'reject', 'bulk_approve', 'bulk_reject']),
+  notes: z.string().optional()
+})
+
+export const sessionStatusUpdateSchema = z.object({
+  status: z.enum(['IDLE', 'RUNNING', 'PAUSED', 'COMPLETED', 'ERROR']).optional(),
+  currentKeyword: z.string().nullable().optional(),
+  progress: z.number().min(0).max(100).optional(),
+  totalKeywords: z.number().min(0).optional(),
+  processedKeywords: z.number().min(0).optional(),
+  resultsFound: z.number().min(0).optional()
+})
+
+export const sessionActionSchema = z.object({
+  action: z.enum(['start', 'pause', 'stop', 'reset'])
 })
 
 export const takedownRequestSchema = z.object({
