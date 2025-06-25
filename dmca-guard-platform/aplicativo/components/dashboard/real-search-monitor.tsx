@@ -116,10 +116,11 @@ export default function RealSearchMonitor({
                   toast({
                     title: "📋 Ver Resultados",
                     description: "Clique aqui para ver os resultados detectados",
-                    action: {
-                      label: "Ver Resultados",
-                      onClick: () => window.open('/detected-content', '_blank')
-                    }
+                    action: (
+                      <button onClick={() => window.open('/detected-content', '_blank')}>
+                        Ver Resultados
+                      </button>
+                    )
                   });
                 }, 1000);
               }

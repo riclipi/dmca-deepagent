@@ -47,10 +47,10 @@ export async function POST(
         safeKeywords: result.safe,
         moderateKeywords: result.moderate,
         dangerousKeywords: result.dangerous,
-        keywordConfig: config,
+        keywordConfig: config as any,
         lastKeywordUpdate: new Date(),
         // Manter keywords antigas se existirem
-        keywords: [...new Set([...brandProfile.keywords, ...result.safe])]
+        keywords: Array.from(new Set([...brandProfile.keywords, ...result.safe]))
       }
     });
 

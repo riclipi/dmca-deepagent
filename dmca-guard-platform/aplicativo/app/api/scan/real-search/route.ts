@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
                 platform: result.platform,
                 thumbnailUrl: result.thumbnailUrl,
                 confidence: Math.round(result.confidence),
-                keywordSource: result.keyword || keyword,
+                keywordSource: keyword,
                 platformType: result.source,
                 priority: result.confidence >= 70 ? 'HIGH' : result.confidence >= 50 ? 'MEDIUM' : 'LOW',
                 detectedAt: result.detectedAt
@@ -285,7 +285,7 @@ export async function POST(request: NextRequest) {
           medium: uniqueResults.filter(r => r.confidence >= 50 && r.confidence < 70).length,
           low: uniqueResults.filter(r => r.confidence < 50).length
         },
-        platforms: [...new Set(uniqueResults.map(r => r.platform))],
+        platforms: Array.from(new Set(uniqueResults.map(r => r.platform))),
         incrementalSave: true // Indicar que foi usado salvamento incremental
       }
     });

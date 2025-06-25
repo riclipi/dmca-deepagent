@@ -141,7 +141,7 @@ export class DmcaContactDetector {
       }
 
     } catch (error) {
-      console.log(`⚠️ Erro escaneando ${pageUrl}, usando contatos padrão:`, error.message);
+      console.log(`⚠️ Erro escaneando ${pageUrl}, usando contatos padrão:`, error instanceof Error ? error.message : error);
       return this.getDefaultContactForDomain(pageUrl);
     }
   }

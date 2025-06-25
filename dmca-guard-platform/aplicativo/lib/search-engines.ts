@@ -226,7 +226,7 @@ export class SearchEngineService {
       });
       
       console.log(`🔐 Usando ${safeKeywords.length} keywords seguras do perfil`);
-      return [...new Set(keywords)].slice(0, 50); // Limita a 50
+      return Array.from(new Set(keywords)).slice(0, 50); // Limita a 50
     }
     
     // Fallback: gera keywords automaticamente (método antigo)
@@ -259,7 +259,7 @@ export class SearchEngineService {
       keywords.push(`${variation} vazado`);
     });
     
-    return [...new Set(keywords)]; // Remove duplicatas
+    return Array.from(new Set(keywords)); // Remove duplicatas
   }
 
   // Busca no Google usando Custom Search API
@@ -452,8 +452,7 @@ export class SearchEngineService {
         platform: this.detectPlatform(`https://${site}`),
         confidence,
         thumbnailUrl: `https://via.placeholder.com/150x150?text=${encodeURIComponent(brandName)}`,
-        detectedAt: new Date(),
-        keyword
+        detectedAt: new Date()
       });
     }
     
