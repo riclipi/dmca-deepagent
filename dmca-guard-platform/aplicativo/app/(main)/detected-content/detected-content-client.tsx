@@ -96,8 +96,13 @@ export default function DetectedContentClient() {
   // Edit modal states
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingContent, setEditingContent] = useState<DetectedContent | null>(null)
-  const [editFormData, setEditFormData] = useState({
-    priority: 'MEDIUM' as const,
+  const [editFormData, setEditFormData] = useState<{
+    priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+    description: string;
+    notes: string;
+    isConfirmed: boolean;
+  }>({
+    priority: 'MEDIUM',
     description: '',
     notes: '',
     isConfirmed: false
