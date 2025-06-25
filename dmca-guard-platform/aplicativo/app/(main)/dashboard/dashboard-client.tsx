@@ -44,6 +44,7 @@ import { StatsCard } from '@/components/stats-card'
 import { RealTimeScanDashboard } from '@/components/dashboard/real-time-scan-dashboard'
 import RealSearchMonitor from '@/components/dashboard/real-search-monitor'
 import KeywordGenerator from '@/components/dashboard/keyword-generator'
+import PerformanceSummary from '@/components/dashboard/performance-summary'
 
 
 // ... (a interface DashboardStats permanece a mesma)
@@ -402,6 +403,15 @@ export default function DashboardClient({ session }: DashboardClientProps) {
             }}
           />
         </div>
+
+        {/* Performance Summary */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <PerformanceSummary />
+        </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Recent Detected Content */}

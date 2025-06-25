@@ -196,21 +196,48 @@ model Notification {
   @@map("notifications")
 }
 
+model Plan {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  displayName       String
+  description       String?
+  price             Decimal  @db.Decimal(10, 2)
+  currency          String   @default("BRL")
+  interval          String   @default("monthly") // monthly, yearly, lifetime
+  features          Json     // JSON array of features
+  limits            Json     // JSON object with limits (profiles, takedowns, etc.)
+  isActive          Boolean  @default(true)
+  isPopular         Boolean  @default(false)
+  sortOrder         Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  subscriptions     Subscription[]
+
+  @@map("plans")
+}
+
 model Subscription {
-  id                   String   @id @default(cuid())
+  id                   String             @id @default(cuid())
   userId               String
-  planType             PlanType
-  status               String
+  planId               String
+  planType             PlanType           // Keep for backward compatibility
+  status               SubscriptionStatus @default(ACTIVE)
   startDate            DateTime
-  endDate              DateTime
-  amount               Decimal  @db.Decimal(10, 2)
-  currency             String   @default("BRL")
+  endDate              DateTime?
+  cancelledAt          DateTime?
+  cancelReason         String?
+  amount               Decimal            @db.Decimal(10, 2)
+  currency             String             @default("BRL")
   paymentMethod        String?
   stripeCustomerId     String?
   stripeSubscriptionId String?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastBilledAt         DateTime?
+  nextBillingAt        DateTime?
+  trialEndsAt          DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                 Plan               @relation(fields: [planId], references: [id])
 
   @@map("subscriptions")
 }
@@ -428,4 +455,13 @@ enum ReviewStatus {
   APPROVED
   REJECTED
   AUTO_APPROVED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  TRIAL
+  PAST_DUE
+  SUSPENDED
 }
