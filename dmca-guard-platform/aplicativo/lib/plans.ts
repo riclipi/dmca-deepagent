@@ -75,6 +75,23 @@ export const plans = {
       takedownsPerMonth: -1,
       scanFrequency: 1
     }
+  },
+  SUPER_USER: {
+    name: 'Super User',
+    price: 0,
+    currency: 'BRL',
+    interval: 'month',
+    features: [
+      'Acesso ilimitado total',
+      'Bypass de todos os limites',
+      'Acesso administrativo'
+    ],
+    limits: {
+      brandProfiles: -1,
+      monitoringSessions: -1,
+      takedownsPerMonth: -1,
+      scanFrequency: 1
+    }
   }
 }
 
@@ -85,8 +102,14 @@ export function getPlanLimits(planType: string) {
 export function canPerformAction(
   planType: string,
   action: string,
-  currentUsage: number
+  currentUsage: number,
+  userEmail?: string
 ): boolean {
+  // Super User bypass
+  if (planType === 'SUPER_USER' || userEmail === 'larys.cubas@hotmail.com') {
+    return true
+  }
+  
   const limits = getPlanLimits(planType)
   
   switch (action) {
