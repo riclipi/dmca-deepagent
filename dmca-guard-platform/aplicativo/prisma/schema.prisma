@@ -33,6 +33,11 @@ model User {
   notifications      Notification[]
   subscriptions      Subscription[]
   takedownRequests   TakedownRequest[]
+  
+  // New DMCA automation relations
+  keywordSearches    KeywordSearch[]
+  referenceImages    ReferenceImage[]
+  dmcaScores         DmcaScore[]
 
   @@map("users")
 }
@@ -63,6 +68,7 @@ model BrandProfile {
   user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   detectedContent    DetectedContent[]
   monitoringSessions MonitoringSession[]
+  referenceImages    ReferenceImage[]
 
   @@map("brand_profiles")
 }
@@ -109,6 +115,15 @@ model DetectedContent {
   processedAt         DateTime?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
+  
+  // DMCA automation fields
+  dmcaContactInfo     DmcaContactInfo?
+  confidence          Int?              @default(0)
+  keywordSource       String?
+  platformType        String?
+  imagesFound         String[]
+  faceMatchConfidence Float?
+  
   brandProfile        BrandProfile      @relation(fields: [brandProfileId], references: [id], onDelete: Cascade)
   monitoringSession   MonitoringSession @relation(fields: [monitoringSessionId], references: [id], onDelete: Cascade)
   user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -272,4 +287,84 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
+}
+
+// New models for DMCA automation
+model DmcaContactInfo {
+  id                 String            @id @default(cuid())
+  detectedContentId  String            @unique
+  email              String?
+  isCompliant        Boolean           @default(false)
+  contactPage        String?
+  detectedMethod     String?
+  confidence         Int               @default(0)
+  additionalEmails   String[]
+  lastCheckedAt      DateTime          @default(now())
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  detectedContent    DetectedContent   @relation(fields: [detectedContentId], references: [id], onDelete: Cascade)
+
+  @@map("dmca_contact_info")
+}
+
+model KeywordSearch {
+  id              String           @id @default(cuid())
+  userId          String
+  keyword         String
+  platform        String
+  lastSearchedAt  DateTime?
+  resultsCount    Int              @default(0)
+  effectiveness   Float?           @default(0)
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  searchResults   SearchResult[]
+
+  @@unique([userId, keyword, platform], name: "user_keyword_platform")
+  @@map("keyword_searches")
+}
+
+model SearchResult {
+  id              String         @id @default(cuid())
+  keywordSearchId String
+  url             String
+  title           String?
+  snippet         String?
+  source          String         // 'google', 'bing', 'serper'
+  rankPosition    Int?
+  foundAt         DateTime       @default(now())
+  keywordSearch   KeywordSearch  @relation(fields: [keywordSearchId], references: [id], onDelete: Cascade)
+
+  @@map("search_results")
+}
+
+model ReferenceImage {
+  id           String       @id @default(cuid())
+  userId       String
+  profileId    String
+  faceId       String       // AWS Rekognition Face ID
+  imageUrl     String?
+  confidence   Float        @default(0)
+  isActive     Boolean      @default(true)
+  uploadedAt   DateTime     @default(now())
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brandProfile BrandProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("reference_images")
+}
+
+model DmcaScore {
+  id               String   @id @default(cuid())
+  userId           String
+  overallScore     Int
+  activeThreats    Int?
+  removalSuccess   Int?
+  responseTime     Int?
+  coverage         Int?
+  level            String   // 'Critical', 'Warning', 'Good', 'Excellent'
+  calculatedAt     DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("dmca_scores")
 }

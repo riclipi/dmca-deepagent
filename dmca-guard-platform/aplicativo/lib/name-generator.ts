@@ -143,11 +143,25 @@ export function generateNameVariants(baseName: string): string[] {
     }
   });
 
-  // FILTRO FINAL E LIMPEZA
-  return Array.from(variants)
+  // FILTRO FINAL E LIMPEZA - ELIMINA DUPLICATAS EFETIVAMENTE
+  const finalVariants = Array.from(variants)
     .map(v => v.trim())
     .filter(v => !!v && v.length >= 2 && v.length <= 30) // Permite variantes menores
     .filter(v => !/^\d+$/.test(v)) // Remove números puros
-    .sort((a, b) => a.localeCompare(b))
-    .slice(0, 100); // Limita a 100 variações top
+    .filter((v, index, arr) => arr.indexOf(v) === index) // Remove duplicatas explicitamente
+    .sort((a, b) => a.localeCompare(b));
+  
+  // Se ainda há muitas variações, prioriza as mais relevantes
+  if (finalVariants.length > 100) {
+    // Prioriza variações mais simples e comuns primeiro
+    const prioritized = finalVariants.sort((a, b) => {
+      // Prioridade: menor comprimento, menos caracteres especiais, mais similares ao original
+      const aScore = a.length + (a.match(/[^a-z0-9]/g)?.length || 0) * 2;
+      const bScore = b.length + (b.match(/[^a-z0-9]/g)?.length || 0) * 2;
+      return aScore - bScore;
+    });
+    return prioritized.slice(0, 100);
+  }
+  
+  return finalVariants;
 }

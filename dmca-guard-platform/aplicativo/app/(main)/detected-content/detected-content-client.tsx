@@ -23,6 +23,7 @@ import { format } from 'date-fns';
 import {
   CheckCircle, XCircle, Send, Shield, Info, AlertTriangle, Mail
 } from 'lucide-react';
+import { AutoDmcaWidget } from '@/components/dmca/auto-dmca-widget';
 
 // Interfaces (adjust based on your actual API response)
 interface BrandProfileMin {
@@ -68,6 +69,10 @@ export default function DetectedContentClient() {
     customMessage: '',
   })
   const [isSubmittingTakedown, setIsSubmittingTakedown] = useState(false)
+
+  // Auto-DMCA modal states
+  const [isAutoDmcaModalOpen, setIsAutoDmcaModalOpen] = useState(false)
+  const [selectedContentForAutoDmca, setSelectedContentForAutoDmca] = useState<DetectedContent | null>(null)
 
   // --- FUNÇÃO DE BUSCA CORRIGIDA ---
   const fetchDetectedContent = useCallback(async (page: number = 1, signal?: AbortSignal) => {
@@ -133,6 +138,11 @@ export default function DetectedContentClient() {
     setSelectedContentForTakedown(content)
     setTakedownFormData({ recipientEmail: '', customMessage: '' })
     setIsTakedownModalOpen(true)
+  }
+
+  const openAutoDmcaModal = (content: DetectedContent) => {
+    setSelectedContentForAutoDmca(content)
+    setIsAutoDmcaModalOpen(true)
   }
 
 const handleTakedownSubmit = async (e: React.FormEvent) => {
@@ -282,13 +292,23 @@ const handlePageChange = (page: number) => {
                     </Button>
                   )}
                   {content.isConfirmed === true && !content.takedownRequest && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => openTakedownModal(content)}
-                    >
-                      <Mail size={14} className="mr-1" /> Iniciar Takedown
-                    </Button>
+                    <>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => openAutoDmcaModal(content)}
+                        className="bg-red-600 hover:bg-red-700 mr-2"
+                      >
+                        <Mail size={14} className="mr-1" /> Auto-DMCA
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openTakedownModal(content)}
+                      >
+                        <Mail size={14} className="mr-1" /> Manual
+                      </Button>
+                    </>
                   )}
                   {content.takedownRequest && (
                       <Button variant="ghost" size="sm" disabled>Ação Registrada</Button>
@@ -395,6 +415,32 @@ const handlePageChange = (page: number) => {
                 </Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Auto-DMCA Modal */}
+      {isAutoDmcaModalOpen && selectedContentForAutoDmca && (
+        <Dialog open={isAutoDmcaModalOpen} onOpenChange={setIsAutoDmcaModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>🤖 Auto-DMCA Submission</DialogTitle>
+              <DialogDescription>
+                Automated DMCA takedown request with contact detection
+              </DialogDescription>
+            </DialogHeader>
+            
+            <AutoDmcaWidget
+              detectedContentId={selectedContentForAutoDmca.id}
+              contentUrl={selectedContentForAutoDmca.url}
+              platform={selectedContentForAutoDmca.platform}
+              priority={selectedContentForAutoDmca.priority}
+              onSubmitSuccess={() => {
+                setIsAutoDmcaModalOpen(false)
+                fetchDetectedContent(currentPage)
+                toast.success('Auto-DMCA request submitted successfully!')
+              }}
+            />
           </DialogContent>
         </Dialog>
       )}

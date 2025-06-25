@@ -1,3 +1,4 @@
+/// <reference types="node" />
 // dmca-guard-platform/app/lib/services/gmail.ts
 
 import { google } from 'googleapis';
@@ -81,7 +82,7 @@ export async function fetchGoogleAlertsFromGmail(userEmail: string) {
     });
 
     const messages = res.data.messages || [];
-    const detectedContents = [];
+    const detectedContents: any[] = [];
 
     for (const msg of messages) {
       const msgData = await gmail.users.messages.get({ userId: 'me', id: msg.id! });

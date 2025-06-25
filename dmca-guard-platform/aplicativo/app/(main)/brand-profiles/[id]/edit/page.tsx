@@ -29,14 +29,21 @@ export default function EditBrandProfilePage() {
 
   useEffect(() => {
     const fetchBrandProfile = async () => {
-      if (!params.id || !session?.user?.id) return;
+      if (!params.id) return;
 
       try {
         setLoading(true);
         const response = await fetch(`/api/brand-profiles/${params.id}`);
         
         if (!response.ok) {
-          throw new Error(`Erro ${response.status}: ${response.statusText}`);
+          if (response.status === 401) {
+            setError('Você precisa estar logado para acessar este perfil.');
+          } else if (response.status === 404) {
+            setError('Perfil não encontrado ou você não tem permissão para editá-lo.');
+          } else {
+            throw new Error(`Erro ${response.status}: ${response.statusText}`);
+          }
+          return;
         }
 
         const data = await response.json();
@@ -50,7 +57,7 @@ export default function EditBrandProfilePage() {
     };
 
     fetchBrandProfile();
-  }, [params.id, session?.user?.id]);
+  }, [params.id]);
 
   const handleUpdate = async (formData: any) => {
     if (!params.id) return;
@@ -73,16 +80,6 @@ export default function EditBrandProfilePage() {
     }
   };
 
-  if (!session?.user?.id) {
-    return (
-      <div className="container mx-auto max-w-2xl px-4 py-8">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600">Acesso Negado</h1>
-          <p className="mt-2 text-gray-600">Você precisa estar logado para editar perfis.</p>
-        </div>
-      </div>
-    );
-  }
 
   if (loading) {
     return (

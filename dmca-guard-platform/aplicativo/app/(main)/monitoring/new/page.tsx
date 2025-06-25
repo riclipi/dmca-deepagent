@@ -40,11 +40,10 @@ export default function NewMonitoringSessionPage() {
     const fetchBrandProfiles = async () => {
       setIsFetchingBrandProfiles(true)
       try {
-        // TODO: Add userId query parameter if your API requires it
         const response = await fetch('/api/brand-profiles')
         if (response.ok) {
           const data = await response.json()
-          setBrandProfiles(data) // Assuming API returns an array of brand profiles
+          setBrandProfiles(data)
         } else {
           toast.error('Erro ao carregar perfis de marca.')
         }

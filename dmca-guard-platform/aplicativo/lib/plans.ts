@@ -119,6 +119,39 @@ export function canPerformAction(
       return limits.monitoringSessions === -1 || currentUsage < limits.monitoringSessions
     case 'sendTakedown':
       return limits.takedownsPerMonth === -1 || currentUsage < limits.takedownsPerMonth
+    case 'dmcaContactDetection':
+      // DMCA contact detection limits per month
+      const dmcaLimits = {
+        FREE: 10,
+        BASIC: 50,
+        PREMIUM: -1, // unlimited
+        ENTERPRISE: -1,
+        SUPER_USER: -1
+      }
+      const dmcaLimit = dmcaLimits[planType as keyof typeof dmcaLimits] || dmcaLimits.FREE
+      return dmcaLimit === -1 || currentUsage < dmcaLimit
+    case 'keywordSearch':
+      // Keyword search limits per month
+      const keywordLimits = {
+        FREE: 50,
+        BASIC: 200,
+        PREMIUM: -1,
+        ENTERPRISE: -1,
+        SUPER_USER: -1
+      }
+      const keywordLimit = keywordLimits[planType as keyof typeof keywordLimits] || keywordLimits.FREE
+      return keywordLimit === -1 || currentUsage < keywordLimit
+    case 'faceRecognition':
+      // Face recognition scans per month
+      const faceLimits = {
+        FREE: 20,
+        BASIC: 100,
+        PREMIUM: -1,
+        ENTERPRISE: -1,
+        SUPER_USER: -1
+      }
+      const faceLimit = faceLimits[planType as keyof typeof faceLimits] || faceLimits.FREE
+      return faceLimit === -1 || currentUsage < faceLimit
     default:
       return true
   }

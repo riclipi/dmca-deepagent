@@ -74,30 +74,43 @@ export default function TakedownRequestsClient() {
   const [isSending, setIsSending] = useState(false); // New state for "Send" button
 
 
-const fetchTakedownRequests = useCallback(async (page: number = 1) => {
+const fetchTakedownRequests = useCallback(async (page: number = 1, signal?: AbortSignal) => {
   setIsLoading(true);
   try {
-    const response = await fetch(`/api/takedown-requests?page=${page}&limit=${ITEMS_PER_PAGE}`);
+    const response = await fetch(`/api/takedown-requests?page=${page}&limit=${ITEMS_PER_PAGE}`, { signal });
     if (response.ok) {
       const data = await response.json();
-      setTakedownRequests(data.data || []);
-      setTotalPages(data.pagination?.pages || 1);
-      setTotalItems(data.pagination?.total || 0);
-      setCurrentPage(data.pagination?.page || page);
+      if (!signal?.aborted) {
+        setTakedownRequests(data.data || []);
+        setTotalPages(data.pagination?.pages || 1);
+        setTotalItems(data.pagination?.total || 0);
+        setCurrentPage(data.pagination?.page || page);
+      }
     } else {
-      toast.error('Erro ao carregar solicitações de takedown.');
+      if (!signal?.aborted) {
+        toast.error('Erro ao carregar solicitações de takedown.');
+      }
     }
   } catch (error) {
-    console.error("Fetch error:", error);
-    toast.error('Erro de conexão ao carregar solicitações.');
+    if (!signal?.aborted) {
+      console.error("Fetch error:", error);
+      toast.error('Erro de conexão ao carregar solicitações.');
+    }
   } finally {
-    setIsLoading(false);
+    if (!signal?.aborted) {
+      setIsLoading(false);
+    }
   }
 }, []);
 
 
   useEffect(() => {
-    fetchTakedownRequests(currentPage);
+    const abortController = new AbortController()
+    fetchTakedownRequests(currentPage, abortController.signal);
+    
+    return () => {
+      abortController.abort()
+    }
   }, [fetchTakedownRequests, currentPage]);
 
   const handlePageChange = (newPage: number) => {
@@ -137,11 +150,13 @@ const fetchTakedownRequests = useCallback(async (page: number = 1) => {
     setIsUpdating(true);
     setModalError(null);
 
+    const abortController = new AbortController();
     try {
       const response = await fetch(`/api/takedown-requests/${selectedTakedownRequest.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subject: editableSubject, message: editableMessage }),
+        signal: abortController.signal
       });
 
       const responseData = await response.json();
@@ -151,23 +166,35 @@ const fetchTakedownRequests = useCallback(async (page: number = 1) => {
         if (responseData.details?.fieldErrors) {
           // Example: concatenate Zod field errors
           const fieldErrors = Object.values(responseData.details.fieldErrors).flat().join(' ');
-          setModalError(fieldErrors || errorMsg);
+          if (!abortController.signal.aborted) {
+            setModalError(fieldErrors || errorMsg);
+          }
         } else {
-          setModalError(errorMsg);
+          if (!abortController.signal.aborted) {
+            setModalError(errorMsg);
+          }
         }
-        toast.error(errorMsg);
+        if (!abortController.signal.aborted) {
+          toast.error(errorMsg);
+        }
       } else {
-        toast.success('Solicitação de Takedown atualizada com sucesso!');
-        setIsViewEditModalOpen(false);
-        fetchTakedownRequests(currentPage); // Refresh the list
+        if (!abortController.signal.aborted) {
+          toast.success('Solicitação de Takedown atualizada com sucesso!');
+          setIsViewEditModalOpen(false);
+          fetchTakedownRequests(currentPage, abortController.signal); // Refresh the list
+        }
       }
     } catch (error) {
-      console.error("Update takedown error:", error);
-      const errorMsg = 'Erro de conexão ao atualizar. Tente novamente.';
-      setModalError(errorMsg);
-      toast.error(errorMsg);
+      if (!abortController.signal.aborted) {
+        console.error("Update takedown error:", error);
+        const errorMsg = 'Erro de conexão ao atualizar. Tente novamente.';
+        setModalError(errorMsg);
+        toast.error(errorMsg);
+      }
     } finally {
-      setIsUpdating(false);
+      if (!abortController.signal.aborted) {
+        setIsUpdating(false);
+      }
     }
   };
 
@@ -181,29 +208,39 @@ const fetchTakedownRequests = useCallback(async (page: number = 1) => {
     setIsSending(true);
     setModalError(null); // Clear previous errors
 
+    const abortController = new AbortController();
     try {
       const response = await fetch(`/api/takedown-requests/${selectedTakedownRequest.id}/send`, {
         method: 'POST',
+        signal: abortController.signal
       });
 
       const responseData = await response.json();
 
       if (!response.ok) {
         const errorMsg = responseData.error || 'Falha ao marcar como enviada.';
-        setModalError(errorMsg);
-        toast.error(errorMsg);
+        if (!abortController.signal.aborted) {
+          setModalError(errorMsg);
+          toast.error(errorMsg);
+        }
       } else {
-        toast.success('Notificação de Takedown marcada como enviada!');
-        setIsViewEditModalOpen(false);
-        fetchTakedownRequests(currentPage); // Refresh the list
+        if (!abortController.signal.aborted) {
+          toast.success('Notificação de Takedown marcada como enviada!');
+          setIsViewEditModalOpen(false);
+          fetchTakedownRequests(currentPage, abortController.signal); // Refresh the list
+        }
       }
     } catch (error) {
-      console.error("Send takedown error:", error);
-      const errorMsg = 'Erro de conexão ao marcar como enviada. Tente novamente.';
-      setModalError(errorMsg);
-      toast.error(errorMsg);
+      if (!abortController.signal.aborted) {
+        console.error("Send takedown error:", error);
+        const errorMsg = 'Erro de conexão ao marcar como enviada. Tente novamente.';
+        setModalError(errorMsg);
+        toast.error(errorMsg);
+      }
     } finally {
-      setIsSending(false);
+      if (!abortController.signal.aborted) {
+        setIsSending(false);
+      }
     }
   };
 
