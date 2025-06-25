@@ -15,6 +15,8 @@ import {
   Crown,
   Check,
   MailWarning, // Icon for notifications
+  Plus,
+  Zap
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -178,10 +180,19 @@ export function Header() {
             </nav>
           )}
 
-          {/* User Menu */}
+          {/* Action Buttons + User Menu */}
           <div className="flex items-center space-x-4">
             {session?.user ? ( // Verificação mais segura
               <>
+                {/* Criar Monitoramento Button */}
+                <Link href="/integrated-monitoring">
+                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+                    <Zap className="h-4 w-4 mr-2" />
+                    <span className="hidden sm:inline">Criar Monitoramento</span>
+                    <span className="sm:hidden">Criar</span>
+                  </Button>
+                </Link>
+
                 {/* Plan Badge */}
                 <Badge 
                   className={`${getPlanBadgeColor(session.user.planType)} text-white`}
@@ -256,6 +267,14 @@ export function Header() {
         {/* Mobile Navigation */}
         {isMenuOpen && session && (
           <div className="md:hidden border-t py-4">
+            <div className="px-2 pb-3">
+              <Link href="/integrated-monitoring" onClick={() => setIsMenuOpen(false)}>
+                <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+                  <Zap className="h-4 w-4 mr-2" />
+                  Criar Monitoramento
+                </Button>
+              </Link>
+            </div>
             <nav className="flex flex-col space-y-2">
               {navigation.map((item) => (
                 <Link

@@ -180,21 +180,26 @@ export default function MonitoringSessionsPage() {
                         </div>
                       </div>
                     )}
-                    {session.searchTerms.length > 0 && (
+                    {(session.customKeywords?.length > 0 || session.useProfileKeywords) && (
                       <div>
                         <h4 className="text-xs font-medium text-muted-foreground mb-1 flex items-center">
                           <ListChecks className="h-3 w-3 mr-1" />
-                          Termos de Busca
+                          Keywords
                         </h4>
                         <div className="flex flex-wrap gap-1">
-                          {session.searchTerms.slice(0, 3).map((term, idx) => (
+                          {session.useProfileKeywords && (
+                            <Badge variant="default" className="text-xs">
+                              🔗 Perfil: {session.brandProfile?.brandName}
+                            </Badge>
+                          )}
+                          {session.customKeywords?.slice(0, 2).map((term, idx) => (
                             <Badge key={idx} variant="secondary" className="text-xs">
                               {term}
                             </Badge>
                           ))}
-                          {session.searchTerms.length > 3 && (
+                          {(session.customKeywords?.length || 0) > 2 && (
                             <Badge variant="outline" className="text-xs">
-                              +{session.searchTerms.length - 3}
+                              +{(session.customKeywords?.length || 0) - 2} mais
                             </Badge>
                           )}
                         </div>

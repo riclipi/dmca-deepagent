@@ -191,7 +191,10 @@ const handleTakedownSubmit = async (e: React.FormEvent) => {
 };
 
 const handlePageChange = (page: number) => {
-  console.log("Mudar para página:", page);
+  if (page >= 1 && page <= totalPages && page !== currentPage && !isLoading) {
+    console.log(`Mudando para página ${page}`);
+    setCurrentPage(page);
+  }
 };
 
   if (isLoading && detectedContents.length === 0) {
