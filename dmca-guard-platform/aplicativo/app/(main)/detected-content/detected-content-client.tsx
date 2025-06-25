@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Search } from 'lucide-react';
 import {
@@ -79,6 +80,9 @@ interface DetectedContent {
 const ITEMS_PER_PAGE = 10;
 
 export default function DetectedContentClient() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  
   const [detectedContents, setDetectedContents] = useState<DetectedContent[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
@@ -125,6 +129,14 @@ export default function DetectedContentClient() {
   useEffect(() => {
     setIsBatchActionsVisible(selectedItems.size > 0)
   }, [selectedItems])
+
+  // Initialize page from URL params
+  useEffect(() => {
+    const pageFromUrl = parseInt(searchParams.get('page') || '1')
+    if (pageFromUrl !== currentPage) {
+      setCurrentPage(pageFromUrl)
+    }
+  }, [searchParams])
 
   const fetchDetectedContent = useCallback(async (page: number = 1, signal?: AbortSignal) => {
     setIsLoading(true)
@@ -377,6 +389,10 @@ export default function DetectedContentClient() {
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages && page !== currentPage && !isLoading) {
+      // Update URL with new page parameter
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('page', page.toString())
+      router.push(`?${params.toString()}`)
       setCurrentPage(page);
     }
   };
