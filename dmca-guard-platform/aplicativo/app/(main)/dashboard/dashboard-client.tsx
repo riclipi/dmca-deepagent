@@ -101,7 +101,15 @@ export default function DashboardClient({ session }: DashboardClientProps) {
   const [modalError, setModalError] = useState<string | null>(null)
   enum ContentType { IMAGE = "IMAGE", VIDEO = "VIDEO", AUDIO = "AUDIO", DOCUMENT = "DOCUMENT", OTHER = "OTHER" }
   const [monitoringSessionsList, setMonitoringSessionsList] = useState<Array<{ id: string; name: string }>>([])
-  const [brandProfiles, setBrandProfiles] = useState<Array<{ id: string; brandName: string }>>([])
+  const [brandProfiles, setBrandProfiles] = useState<Array<{ 
+    id: string; 
+    brandName: string;
+    safeKeywords?: string[];
+    moderateKeywords?: string[];
+    dangerousKeywords?: string[];
+    lastKeywordUpdate?: string;
+    keywords?: string[];
+  }>>([])
   const [isFetchingBrandProfiles, setIsFetchingBrandProfiles] = useState(false)
 
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button' 
@@ -13,134 +13,22 @@ import {
   Settings, 
   LogOut,
   Crown,
-  Check,
-  MailWarning, // Icon for notifications
-  Plus,
   Zap
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
-import { toast } from 'sonner'
-import { formatDistanceToNow } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-
-
-// Interface for Notification
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  isRead: boolean;
-  createdAt: string; // ISO date string
-  type: 'CONTENT_DETECTED' | 'TAKEDOWN_STATUS' | 'GENERAL_ALERT'; // Example types
-}
 
 
 export function Header() {
   const { data: session } = useSession()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false)
 
-
-  // Fetch initial unread count (e.g., from dashboard stats or a dedicated endpoint)
-  // This is a simplified example; in a real app, this might come from a global state/context
-  // or be fetched alongside other user-specific data.
-  const fetchInitialUnreadCount = async () => {
-    if (!session?.user?.id) return;
-    try {
-      // Assuming the dashboard stats endpoint returns unreadNotifications count
-      const response = await fetch(`/api/dashboard/stats?userId=${session.user.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setUnreadCount(data.overview?.unreadNotifications || 0);
-      }
-    } catch (error) {
-      console.error("Error fetching unread count:", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchInitialUnreadCount();
-  }, [session]);
-
-
-  const fetchNotifications = async () => {
-    if (!session?.user?.id) return;
-    setIsLoadingNotifications(true);
-    try {
-      const response = await fetch('/api/notifications'); // Assumes API fetches for the logged-in user
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data.notifications || data || []); // Adjust based on API response
-        setUnreadCount(data.notifications?.filter((n: Notification) => !n.isRead).length || 0);
-      } else {
-        toast.error("Erro ao carregar notificações.");
-      }
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      toast.error("Erro de conexão ao buscar notificações.");
-    } finally {
-      setIsLoadingNotifications(false);
-    }
-  };
-
-  const handleNotificationIconClick = () => {
-    setIsPopoverOpen(!isPopoverOpen);
-    if (!isPopoverOpen && notifications.length === 0) { // Fetch only if opening and no notifs loaded yet
-        fetchNotifications();
-    } else if(isPopoverOpen) {
-      // Optionally refresh unread count when closing, or rely on other mechanisms
-      fetchInitialUnreadCount();
-    }
-  };
-
-  const handleMarkAsRead = async (notificationId: string) => {
-    try {
-      const response = await fetch(`/api/notifications/${notificationId}/read`, { method: 'POST' });
-      if (response.ok) {
-        setNotifications(prev =>
-          prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1)); // Decrement unread count
-        toast.success("Notificação marcada como lida.");
-      } else {
-        toast.error("Erro ao marcar notificação como lida.");
-      }
-    } catch (error) {
-      toast.error("Erro de conexão ao marcar como lida.");
-    }
-  };
-
-  const handleMarkAllAsRead = async () => {
-    // This assumes an endpoint like /api/notifications/read-all exists
-    try {
-      const response = await fetch('/api/notifications/read-all', { method: 'POST' });
-      if (response.ok) {
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-        setUnreadCount(0);
-        toast.success("Todas as notificações marcadas como lidas.");
-      } else {
-        toast.error("Erro ao marcar todas como lidas.");
-      }
-    } catch (error) {
-      toast.error("Erro de conexão ao marcar todas como lidas.");
-    }
-  };
 
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Perfis de Marca', href: '/brand-profiles' },
     { name: 'Monitoramento', href: '/monitoring' },
+    { name: 'SEO Analysis', href: '/dashboard/seo-analysis' },
     { name: 'Takedowns', href: '/takedown-requests' }, // Corrigido para /takedown-requests
     { name: 'Planos', href: '/pricing' }
   ]
@@ -228,6 +116,13 @@ export function Header() {
                       >
                         <Settings className="h-4 w-4 mr-2" />
                         Configurações
+                      </Link>
+                      <Link
+                        href="/subscription/cancel"
+                        className="flex items-center px-4 py-2 text-sm hover:bg-accent text-red-600"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancelar Assinatura
                       </Link>
                       <button
                         // --- ALTERAÇÃO 2: MELHORADA A FUNÇÃO signOut ---
