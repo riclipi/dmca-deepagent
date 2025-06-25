@@ -16,21 +16,22 @@ import {
   Zap
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { LanguageSwitcher } from '@/components/language-switcher'
+import { useTranslation } from '@/lib/translations'
 
 
 export function Header() {
   const { data: session } = useSession()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-
-
+  const { t } = useTranslation()
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Perfis de Marca', href: '/brand-profiles' },
-    { name: 'Monitoramento', href: '/monitoring' },
-    { name: 'SEO Analysis', href: '/dashboard/seo-analysis' },
-    { name: 'Takedowns', href: '/takedown-requests' }, // Corrigido para /takedown-requests
-    { name: 'Planos', href: '/pricing' }
+    { name: t('navigation.dashboard'), href: '/dashboard' },
+    { name: t('navigation.profiles'), href: '/brand-profiles' },
+    { name: t('navigation.monitoring'), href: '/monitoring' },
+    { name: t('navigation.seoAnalysis'), href: '/dashboard/seo-analysis' },
+    { name: t('navigation.takedowns'), href: '/takedown-requests' },
+    { name: t('navigation.plans'), href: '/pricing' }
   ]
 
   const getPlanBadgeColor = (planType: string) => {
@@ -76,8 +77,8 @@ export function Header() {
                 <Link href="/integrated-monitoring">
                   <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
                     <Zap className="h-4 w-4 mr-2" />
-                    <span className="hidden sm:inline">Criar Monitoramento</span>
-                    <span className="sm:hidden">Criar</span>
+                    <span className="hidden sm:inline">{t('navigation.createMonitoring')}</span>
+                    <span className="sm:hidden">{t('common.create')}</span>
                   </Button>
                 </Link>
 
@@ -97,6 +98,9 @@ export function Header() {
                   </span>
                 </Button>
 
+                {/* Language Switcher */}
+                <LanguageSwitcher />
+
                 {/* User Menu */}
                 <div className="relative group">
                   <Button variant="ghost" size="icon">
@@ -115,22 +119,21 @@ export function Header() {
                         className="flex items-center px-4 py-2 text-sm hover:bg-accent"
                       >
                         <Settings className="h-4 w-4 mr-2" />
-                        Configurações
+                        {t('navigation.settings')}
                       </Link>
                       <Link
                         href="/subscription/cancel"
                         className="flex items-center px-4 py-2 text-sm hover:bg-accent text-red-600"
                       >
                         <X className="h-4 w-4 mr-2" />
-                        Cancelar Assinatura
+                        {t('navigation.cancelSubscription')}
                       </Link>
                       <button
-                        // --- ALTERAÇÃO 2: MELHORADA A FUNÇÃO signOut ---
                         onClick={() => signOut({ callbackUrl: '/' })}
                         className="flex items-center w-full px-4 py-2 text-sm hover:bg-accent text-left"
                       >
                         <LogOut className="h-4 w-4 mr-2" />
-                        Sair
+                        {t('auth.signOut')}
                       </button>
                     </div>
                   </div>
@@ -138,11 +141,12 @@ export function Header() {
               </>
             ) : (
               <div className="flex items-center space-x-2">
+                <LanguageSwitcher />
                 <Link href="/auth/login">
-                  <Button variant="ghost">Entrar</Button>
+                  <Button variant="ghost">{t('auth.signIn')}</Button>
                 </Link>
                 <Link href="/auth/register">
-                  <Button>Cadastrar</Button>
+                  <Button>{t('auth.register')}</Button>
                 </Link>
               </div>
             )}
@@ -166,7 +170,7 @@ export function Header() {
               <Link href="/integrated-monitoring" onClick={() => setIsMenuOpen(false)}>
                 <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
                   <Zap className="h-4 w-4 mr-2" />
-                  Criar Monitoramento
+                  {t('navigation.createMonitoring')}
                 </Button>
               </Link>
             </div>

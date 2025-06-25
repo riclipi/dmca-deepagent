@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Flag, ExternalLink, AlertTriangle, CheckCircle, Eye, RefreshCw, Globe } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/translations'
 
 interface SearchResult {
   position: number
@@ -30,6 +31,7 @@ interface BrandProfile {
 
 export default function SEOAnalysisPage() {
   const { data: session } = useSession()
+  const { t } = useTranslation()
   const [selectedKeyword, setSelectedKeyword] = useState("")
   const [selectedProfile, setSelectedProfile] = useState("")
   const [activeTab, setActiveTab] = useState("web")
@@ -214,8 +216,8 @@ export default function SEOAnalysisPage() {
       
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-purple-600 mb-2">SEO Analysis</h1>
-        <p className="text-gray-600">Veja como o Google te vê para suas keywords</p>
+        <h1 className="text-3xl font-bold text-purple-600 mb-2">{t('seoAnalysis.title')}</h1>
+        <p className="text-gray-600">{t('seoAnalysis.subtitle')}</p>
       </div>
 
       {/* Controls */}
@@ -225,10 +227,10 @@ export default function SEOAnalysisPage() {
           {/* Profile & Keyword Selection */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div>
-              <label className="block text-sm font-medium mb-2">Perfil de Marca</label>
+              <label className="block text-sm font-medium mb-2">{t('seoAnalysis.brandProfile')}</label>
               <Select value={selectedProfile} onValueChange={setSelectedProfile}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione um perfil" />
+                  <SelectValue placeholder={t('seoAnalysis.selectProfile')} />
                 </SelectTrigger>
                 <SelectContent>
                   {brandProfiles.map(profile => (
@@ -241,10 +243,10 @@ export default function SEOAnalysisPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Keyword</label>
+              <label className="block text-sm font-medium mb-2">{t('seoAnalysis.keyword')}</label>
               <Select value={selectedKeyword} onValueChange={setSelectedKeyword}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma keyword" />
+                  <SelectValue placeholder={t('seoAnalysis.selectKeyword')} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableKeywords.map(keyword => (
@@ -265,12 +267,12 @@ export default function SEOAnalysisPage() {
                 {isLoading ? (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Buscando...
+                    {t('seoAnalysis.searching')}
                   </>
                 ) : (
                   <>
                     <Globe className="w-4 h-4 mr-2" />
-                    Buscar no Google
+                    {t('seoAnalysis.searchGoogle')}
                   </>
                 )}
               </Button>
@@ -348,9 +350,9 @@ export default function SEOAnalysisPage() {
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="mb-6">
-                <TabsTrigger value="web">Web Search</TabsTrigger>
-                <TabsTrigger value="images">Images</TabsTrigger>
-                <TabsTrigger value="videos">Videos</TabsTrigger>
+                <TabsTrigger value="web">{t('seoAnalysis.webResults')}</TabsTrigger>
+                <TabsTrigger value="images">{t('seoAnalysis.imageResults')}</TabsTrigger>
+                <TabsTrigger value="videos">{t('seoAnalysis.videoResults')}</TabsTrigger>
               </TabsList>
 
               <TabsContent value={activeTab}>
@@ -358,12 +360,12 @@ export default function SEOAnalysisPage() {
                 <div className="space-y-1">
                   {/* Header */}
                   <div className={`grid gap-4 p-3 text-sm font-medium text-gray-500 border-b ${activeTab === 'web' ? 'grid-cols-12' : 'grid-cols-11'}`}>
-                    <div className="col-span-1">Position</div>
-                    <div className="col-span-3">Link</div>
-                    <div className="col-span-3">Title</div>
+                    <div className="col-span-1">{t('seoAnalysis.position')}</div>
+                    <div className="col-span-3">{t('seoAnalysis.link')}</div>
+                    <div className="col-span-3">{t('seoAnalysis.title')}</div>
                     {activeTab !== 'web' && <div className="col-span-1">Image</div>}
-                    <div className="col-span-2">Purity</div>
-                    <div className="col-span-1">Action</div>
+                    <div className="col-span-2">{t('seoAnalysis.purity')}</div>
+                    <div className="col-span-1">{t('seoAnalysis.action')}</div>
                   </div>
 
                   {/* Results */}
@@ -435,10 +437,10 @@ export default function SEOAnalysisPage() {
         <Card className="text-center p-8">
           <Globe className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-600 mb-2">
-            Nenhum resultado encontrado
+            {t('seoAnalysis.noResults')}
           </h3>
           <p className="text-gray-500">
-            Clique em "Buscar no Google" para analisar os resultados da keyword "{selectedKeyword}"
+            {t('seoAnalysis.clickSearch')} "{selectedKeyword}"
           </p>
         </Card>
       )}

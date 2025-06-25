@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { CheckCircle, TrendingUp, DollarSign, Shield, Globe, Instagram, Twitter, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/translations'
 
 interface UserStats {
   totalInfringements: number
@@ -26,6 +27,7 @@ interface UserStats {
 export default function CancelSubscriptionPage() {
   const { data: session } = useSession()
   const router = useRouter()
+  const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
   const [userStats, setUserStats] = useState<UserStats>({
     totalInfringements: 0,
@@ -152,10 +154,10 @@ export default function CancelSubscriptionPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-purple-600 mb-2">
-            Sua Proteção Está Funcionando! 🛡️
+            {t('retention.title')}
           </h1>
           <p className="text-gray-600 text-lg">
-            Veja o progresso que você conquistou
+            {t('retention.subtitle')}
           </p>
         </div>
 
@@ -198,7 +200,7 @@ export default function CancelSubscriptionPage() {
           {/* Left Side - Platform Redirects */}
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              ⬇️ Tráfego redirecionado para plataformas como
+              ⬇️ {t('retention.trafficRedirectedTo')}
             </h2>
             
             <div className="grid grid-cols-3 gap-4">
@@ -223,25 +225,25 @@ export default function CancelSubscriptionPage() {
             {/* Current Stats */}
             <Card className="p-6 bg-white border-2 border-gray-200">
               <h3 className="text-lg font-bold text-gray-800 mb-4">
-                📊 Suas Estatísticas Atuais
+                📊 {t('retention.currentStats')}
               </h3>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">{userStats.brandProfilesCount}</div>
-                  <div className="text-sm text-gray-500">Perfis Protegidos</div>
+                  <div className="text-sm text-gray-500">{t('retention.protectedProfiles')}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">{userStats.monitoringSessionsCount}</div>
-                  <div className="text-sm text-gray-500">Sessões de Monitoramento</div>
+                  <div className="text-sm text-gray-500">{t('retention.monitoringSessions')}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-red-600">{userStats.detectedContentCount}</div>
-                  <div className="text-sm text-gray-500">Conteúdos Detectados</div>
+                  <div className="text-sm text-gray-500">{t('retention.detectedContent')}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">{userStats.takedownsSent}</div>
-                  <div className="text-sm text-gray-500">Takedowns Enviados</div>
+                  <div className="text-sm text-gray-500">{t('retention.takedownsSent')}</div>
                 </div>
               </div>
             </Card>
@@ -250,22 +252,22 @@ export default function CancelSubscriptionPage() {
           {/* Right Side - Keep Progress */}
           <Card className="p-8 bg-gradient-to-br from-purple-500 to-blue-600 text-white">
             <h2 className="text-3xl font-bold mb-4">
-              Mantenha Seu Progresso! 🚀
+              {t('retention.keepProgress')}
             </h2>
             
             <p className="text-lg mb-6 text-purple-100">
-              Pausar sua assinatura em vez de cancelar!
+              {t('retention.pauseInstead')}
             </p>
 
             <div className="space-y-3 mb-8">
               {[
-                { icon: DollarSign, text: `R$ ${userStats.revenueSaved} economizados por mês` },
-                { icon: Shield, text: `${userStats.totalInfringements.toLocaleString()} infrações encontradas` },
-                { icon: CheckCircle, text: `${userStats.takedownsSent} takedowns enviados` },
-                { icon: TrendingUp, text: `R$ ${(userStats.revenueSaved * 30).toLocaleString()} loss de revenue evitado` },
-                { icon: CheckCircle, text: `${userStats.googlePagesCleared} perfis falsos removidos` },
-                { icon: Shield, text: "Tráfego redirecionado para plataformas oficiais" },
-                { icon: CheckCircle, text: `${userStats.googlePagesCleared}+ páginas do Google limpas` }
+                { icon: DollarSign, text: `R$ ${userStats.revenueSaved} ${t('retention.savedPerMonth')}` },
+                { icon: Shield, text: `${userStats.totalInfringements.toLocaleString()} ${t('retention.infringementsFound')}` },
+                { icon: CheckCircle, text: `${userStats.takedownsSent} ${t('retention.takedownsSent')}` },
+                { icon: TrendingUp, text: `R$ ${(userStats.revenueSaved * 30).toLocaleString()} ${t('retention.revenueLossHalted')}` },
+                { icon: CheckCircle, text: `${userStats.googlePagesCleared} ${t('retention.profilesProtected')}` },
+                { icon: Shield, text: t('retention.trafficRedirected') },
+                { icon: CheckCircle, text: `${userStats.googlePagesCleared}+ ${t('retention.googlePagesCleared')}` }
               ].map((item, index) => (
                 <div key={index} className="flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-green-300 flex-shrink-0" />
@@ -281,7 +283,7 @@ export default function CancelSubscriptionPage() {
                 onClick={handlePauseSubscription}
                 disabled={isLoading}
               >
-                {isLoading ? 'Processando...' : 'Pausar por 1 mês'}
+                {isLoading ? t('retention.processing') : t('retention.pauseForMonth')}
               </Button>
               
               <Button 
@@ -291,12 +293,12 @@ export default function CancelSubscriptionPage() {
                 onClick={handleCancelSubscription}
                 disabled={isLoading}
               >
-                {isLoading ? 'Processando...' : 'Cancelar e Perder Progresso'}
+                {isLoading ? t('retention.processing') : t('retention.cancelAndLose')}
               </Button>
 
               <div className="flex items-center gap-2 text-yellow-200 text-sm mt-4">
                 <AlertTriangle className="w-4 h-4" />
-                <span>Cancelar permanentemente remove toda sua proteção ativa</span>
+                <span>{t('retention.permanentlyRemoves')}</span>
               </div>
             </div>
           </Card>
@@ -308,14 +310,12 @@ export default function CancelSubscriptionPage() {
             <AlertTriangle className="w-6 h-6 text-red-500 flex-shrink-0 mt-1" />
             <div>
               <h3 className="font-bold text-red-800 mb-2">
-                ⚠️ O que acontece se você cancelar:
+                ⚠️ {t('retention.warningTitle')}
               </h3>
               <ul className="text-red-700 space-y-1 text-sm">
-                <li>• Todas as sessões de monitoramento serão interrompidas</li>
-                <li>• Novos vazamentos não serão detectados automaticamente</li>
-                <li>• Takedowns automáticos serão suspensos</li>
-                <li>• Seu progresso atual será perdido permanentemente</li>
-                <li>• Tráfego voltará a ser direcionado para sites de pirataria</li>
+                {t('retention.warningItems').map((item, index) => (
+                  <li key={index}>• {item}</li>
+                ))}
               </ul>
             </div>
           </div>

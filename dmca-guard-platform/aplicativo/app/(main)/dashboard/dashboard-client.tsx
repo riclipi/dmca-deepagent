@@ -8,6 +8,7 @@ import { motion } from 'framer-motion'
 // Header moved to dashboard layout
 // ... (todas as suas outras importações permanecem)
 import { Session } from 'next-auth' // NOVA importação para tipagem
+import { useTranslation } from '@/lib/translations'
 import Link from 'next/link'
 import { 
   Shield, Search, AlertTriangle, CheckCircle, TrendingUp,
@@ -94,6 +95,7 @@ interface DashboardClientProps {
 // O componente agora recebe 'session' como prop
 export default function DashboardClient({ session }: DashboardClientProps) {
   // REMOVEMOS a linha: const { data: session } = useSession()
+  const { t } = useTranslation()
   
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -368,19 +370,19 @@ export default function DashboardClient({ session }: DashboardClientProps) {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatsCard
-            title="Perfis de Marca"
+            title={t('brandProfiles.title')}
             value={stats?.overview.brandProfiles || 0}
             icon={Shield}
             description="Perfis ativos sendo monitorados"
           />
           <StatsCard
-            title="Sessões de Monitoramento"
+            title={t('monitoring.title')}
             value={stats?.overview.monitoringSessions || 0}
             icon={Search}
             description="Monitoramentos em execução"
           />
           <StatsCard
-            title="Conteúdo Detectado"
+            title={t('dashboard.detectedContent')}
             value={stats?.overview.detectedContent || 0}
             icon={AlertTriangle}
             description="Total de infrações encontradas"
@@ -390,7 +392,7 @@ export default function DashboardClient({ session }: DashboardClientProps) {
             }}
           />
           <StatsCard
-            title="Takedowns Enviados"
+            title={t('dashboard.takedownsSent')}
             value={stats?.overview.takedownRequests || 0}
             icon={Mail}
             description="Solicitações de remoção"
@@ -480,14 +482,14 @@ export default function DashboardClient({ session }: DashboardClientProps) {
                   <a>
                     <Button className="w-full justify-start" variant="outline">
                       <Search className="h-4 w-4 mr-2" />
-                      Nova Sessão de Monitoramento
+                      {t('monitoring.createSession')}
                     </Button>
                   </a>
                 </Link>
                 <Link href="/takedown-requests">
                   <Button className="w-full justify-start" variant="outline">
                     <Mail className="h-4 w-4 mr-2" />
-                    Ver Takedowns
+                    {t('takedowns.title')}
                   </Button>
                 </Link>
                 <Link href="/pricing">
@@ -523,7 +525,7 @@ export default function DashboardClient({ session }: DashboardClientProps) {
               <div>
                 <CardTitle className="flex items-center">
                   <Mail className="h-5 w-5 mr-2 text-blue-500" />
-                  Takedowns Recentes
+                  {t('dashboard.recentActivity')}
                 </CardTitle>
                 <CardDescription>
                   Status das suas solicitações de remoção

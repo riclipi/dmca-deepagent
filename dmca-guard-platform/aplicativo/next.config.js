@@ -4,6 +4,11 @@ const nextConfig = {
   outputFileTracingIncludes: {
     '/api/**/*': ['./prisma/**/*'],
   },
+  i18n: {
+    locales: ['en', 'pt'],
+    defaultLocale: 'pt',
+    localeDetection: true,
+  },
   images: {
     remotePatterns: [
       {
