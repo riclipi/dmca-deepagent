@@ -48,17 +48,21 @@ export async function GET(request: NextRequest) {
       prisma.detectedContent.findMany({
         where,
         include: {
-        brandProfile: {
-        select: {
-        id: true,
-        brandName: true // <-- Correto
-  }
-},
+          brandProfile: {
+            select: {
+              id: true,
+              brandName: true
+            }
+          },
           monitoringSession: {
             select: {
               id: true,
               name: true
             }
+          },
+          takedownRequests: {
+            orderBy: { createdAt: 'desc' },
+            take: 1
           },
           _count: {
             select: {
@@ -73,8 +77,16 @@ export async function GET(request: NextRequest) {
       prisma.detectedContent.count({ where })
     ])
 
+    // Mapear infringingUrl para url para compatibilidade com interface
+    const mappedContent = detectedContent.map(content => ({
+      ...content,
+      url: content.infringingUrl, // Mapear para interface
+      createdAt: content.detectedAt || content.createdAt, // Compatibilidade de data
+      takedownRequest: content.takedownRequests?.[0] || null // Pegar primeiro takedown se existir
+    }));
+
     return NextResponse.json({
-      data: detectedContent,
+      data: mappedContent,
       pagination: {
         page,
         limit,

@@ -104,8 +104,18 @@ export class DmcaContactDetector {
         timeout: 10000,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        validateStatus: function (status) {
+          // Aceitar códigos de status 200-299 e também 403/404 para tentar extrair informações
+          return (status >= 200 && status < 300) || status === 403 || status === 404;
         }
       })
+
+      // Se for 403 ou 404, retorna resultado padrão baseado no domínio
+      if (response.status === 403 || response.status === 404) {
+        console.log(`⚠️ Acesso negado (${response.status}) para ${pageUrl}, usando contatos padrão`);
+        return this.getDefaultContactForDomain(pageUrl);
+      }
 
       const $ = cheerio.load(response.data)
       const pageText = $.text().toLowerCase()
@@ -131,7 +141,8 @@ export class DmcaContactDetector {
       }
 
     } catch (error) {
-      throw new Error(`Failed to scan page: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.log(`⚠️ Erro escaneando ${pageUrl}, usando contatos padrão:`, error.message);
+      return this.getDefaultContactForDomain(pageUrl);
     }
   }
 
@@ -239,6 +250,30 @@ export class DmcaContactDetector {
     if (allEmails.length > 1) confidence += 10
 
     return Math.min(confidence, 100)
+  }
+
+  private getDefaultContactForDomain(pageUrl: string): Omit<DmcaContactInfo, 'contactPage' | 'detectedMethod'> {
+    const domain = new URL(pageUrl).hostname;
+    
+    // Contatos padrão conhecidos para sites que bloqueiam acesso
+    const knownContacts: Record<string, string> = {
+      'coomer.party': 'abuse@coomer.party',
+      'kemono.party': 'abuse@kemono.party', 
+      'reddit.com': 'copyright@reddit.com',
+      'twitter.com': 'copyright@twitter.com',
+      'x.com': 'copyright@twitter.com',
+      'pornhub.com': 'dmca@pornhub.com',
+      'xvideos.com': 'abuse@xvideos.com'
+    };
+    
+    const email = knownContacts[domain] || `abuse@${domain}`;
+    
+    return {
+      email,
+      isCompliant: false, // Assume não compliance se bloqueou acesso
+      confidence: 30, // Baixa confiança para contatos padrão
+      additionalEmails: [`contact@${domain}`, `legal@${domain}`]
+    };
   }
 
   // Utility method to get domain from URL

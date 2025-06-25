@@ -22,6 +22,13 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface BrandProfile {
   id: string;
@@ -92,6 +99,7 @@ export default function RealSearchMonitor({
           const response = await fetch(`/api/scan/real-search?sessionId=${selectedSession}`);
           if (response.ok) {
             const data = await response.json();
+            console.log('📊 Status da busca:', data); // Log para debug
             setSearchProgress(data.progress || 0);
             setCurrentKeyword(data.currentKeyword || '');
             
@@ -100,15 +108,27 @@ export default function RealSearchMonitor({
               if (data.status === 'COMPLETED') {
                 toast({
                   title: "🎉 Busca Concluída!",
-                  description: `Encontrados ${data.resultsFound} novos vazamentos potenciais`,
+                  description: `Encontrados ${data.resultsFound || 0} novos vazamentos potenciais`,
                 });
+                
+                // Mostrar link para ver resultados
+                setTimeout(() => {
+                  toast({
+                    title: "📋 Ver Resultados",
+                    description: "Clique aqui para ver os resultados detectados",
+                    action: {
+                      label: "Ver Resultados",
+                      onClick: () => window.open('/detected-content', '_blank')
+                    }
+                  });
+                }, 1000);
               }
             }
           }
         } catch (error) {
           console.error('Erro monitorando progresso:', error);
         }
-      }, 2000);
+      }, 1500); // Mais frequente para melhor UX
     }
 
     return () => {
@@ -194,6 +214,16 @@ export default function RealSearchMonitor({
     }
   };
 
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'RUNNING': return '🔄 Executando';
+      case 'COMPLETED': return '✅ Concluída';
+      case 'ERROR': return '❌ Erro';
+      case 'PAUSED': return '⏸️ Pausada';
+      default: return '⏳ Inativa';
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'RUNNING': return 'bg-blue-500';
@@ -220,38 +250,47 @@ export default function RealSearchMonitor({
           {/* Seleção de Perfil */}
           <div>
             <label className="text-sm font-medium mb-2 block">Perfil de Marca</label>
-            <select
+            <Select
               value={selectedProfile}
-              onChange={(e) => setSelectedProfile(e.target.value)}
-              className="w-full p-2 border rounded-md bg-background"
+              onValueChange={setSelectedProfile}
               disabled={isSearching}
             >
-              <option value="">Selecione um perfil...</option>
-              {brandProfiles.map(profile => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.brandName} ({profile.safeKeywords?.length || 0} keywords)
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione um perfil..." />
+              </SelectTrigger>
+              <SelectContent>
+                {brandProfiles.map(profile => (
+                  <SelectItem key={profile.id} value={profile.id}>
+                    {profile.brandName} ({profile.safeKeywords?.length || 0} keywords)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Seleção de Sessão */}
           {selectedProfile && (
             <div>
               <label className="text-sm font-medium mb-2 block">Sessão de Monitoramento</label>
-              <select
+              <Select
                 value={selectedSession}
-                onChange={(e) => setSelectedSession(e.target.value)}
-                className="w-full p-2 border rounded-md bg-background"
+                onValueChange={setSelectedSession}
                 disabled={isSearching}
               >
-                <option value="">Selecione uma sessão...</option>
-                {monitoringSessions.map(session => (
-                  <option key={session.id} value={session.id}>
-                    {session.name} - {getStatusIcon(session.status)}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione uma sessão..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {monitoringSessions.map(session => (
+                    <SelectItem key={session.id} value={session.id}>
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(session.status)}
+                        <span>{session.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 

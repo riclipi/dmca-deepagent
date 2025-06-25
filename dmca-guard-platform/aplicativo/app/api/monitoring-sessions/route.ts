@@ -15,11 +15,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
+    const url = new URL(request.url)
+    const brandProfileId = url.searchParams.get('brandProfileId')
+    const userId = url.searchParams.get('userId')
+
+    // Construir filtros dinâmicos
+    const where: any = {
+      userId: session.user.id,
+      isActive: true
+    }
+
+    // Filtrar por brandProfileId se fornecido
+    if (brandProfileId) {
+      where.brandProfileId = brandProfileId
+    }
+
     const monitoringSessions = await prisma.monitoringSession.findMany({
-      where: {
-        userId: session.user.id,
-        isActive: true
-      },
+      where,
       include: {
         brandProfile: {
           select: {
@@ -36,7 +48,11 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     })
 
-    return NextResponse.json(monitoringSessions)
+    // Retornar no formato esperado pelo componente
+    return NextResponse.json({ 
+      sessions: monitoringSessions,
+      total: monitoringSessions.length 
+    })
 
   } catch (error) {
     console.error('Erro ao buscar sessões de monitoramento:', error)
