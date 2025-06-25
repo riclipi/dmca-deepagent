@@ -23,7 +23,7 @@ export class DmcaTemplateGenerator {
     customMessage?: string
   ): DmcaTemplateData {
     
-    const domain = this.extractDomain(leak.url)
+    const domain = this.extractDomain(leak.infringingUrl)
     const contactName = this.extractContactName(dmcaContact)
     const isUrgent = leak.priority === 'URGENT' || leak.priority === 'HIGH'
     
@@ -50,7 +50,7 @@ export class DmcaTemplateGenerator {
     customMessage?: string
   ): string {
     const contactName = this.extractContactName(dmcaContact)
-    const domain = this.extractDomain(leak.url)
+    const domain = this.extractDomain(leak.infringingUrl)
     const currentDate = new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long', 
@@ -65,8 +65,8 @@ I hope this message finds you well. I am writing to notify you of copyright infr
 
 📋 TAKEDOWN REQUEST DETAILS
 
-🔗 Infringing Content URL: ${leak.url}
-📅 Date of Detection: ${new Date(leak.detectedAt).toLocaleDateString()}
+🔗 Infringing Content URL: ${leak.infringingUrl}
+📅 Date of Detection: ${new Date(leak.createdAt).toLocaleDateString()}
 ⚠️  Priority Level: ${leak.priority}
 📊 Similarity Score: ${leak.similarity || 'N/A'}%
 
@@ -160,8 +160,8 @@ This notice is sent in good faith and is not intended to harass or intimidate. I
     const templates = new Map<string, DmcaTemplateData>()
 
     leaks.forEach(leak => {
-      const domain = this.extractDomain(leak.url)
-      const dmcaContact = dmcaContacts.get(domain) || dmcaContacts.get(leak.url) || ''
+      const domain = this.extractDomain(leak.infringingUrl)
+      const dmcaContact = dmcaContacts.get(domain) || dmcaContacts.get(leak.infringingUrl) || ''
       
       if (dmcaContact) {
         const template = this.generateDmcaTemplate(leak, dmcaContact, userInfo, customMessage)
@@ -222,7 +222,7 @@ ${userInfo.email}`
     userInfo: UserInfo,
     daysSinceOriginal: number
   ): DmcaTemplateData {
-    const domain = this.extractDomain(originalLeak.url)
+    const domain = this.extractDomain(originalLeak.infringingUrl)
     
     return {
       subject: `[URGENT FOLLOW-UP] DMCA Takedown Notice - ${domain} (${daysSinceOriginal} days pending)`,
@@ -230,7 +230,7 @@ ${userInfo.email}`
 
 This is a follow-up to my DMCA takedown notice sent ${daysSinceOriginal} days ago regarding copyright infringement on ${domain}.
 
-ORIGINAL REQUEST: ${originalLeak.url}
+ORIGINAL REQUEST: ${originalLeak.infringingUrl}
 STATUS: Still active and accessible
 
 Under the DMCA, platforms are required to respond expeditiously to takedown notices. The continued hosting of this infringing content may affect your safe harbor protections under 17 U.S.C. § 512.

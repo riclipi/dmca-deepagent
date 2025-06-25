@@ -190,7 +190,7 @@ export async function PUT(request: NextRequest) {
       } catch (error) {
         errors.push({
           detectedContentId: content.id,
-          error: error.message
+          error: error instanceof Error ? error.message : 'Unknown error'
         })
       }
     }

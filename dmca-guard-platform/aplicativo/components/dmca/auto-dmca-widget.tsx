@@ -112,7 +112,7 @@ export function AutoDmcaWidget({
       console.error('Error generating template:', error)
       toast({
         title: 'Template Generation Failed',
-        description: error.message || 'Failed to generate DMCA template',
+        description: error instanceof Error ? error.message : 'Failed to generate DMCA template',
         variant: 'destructive'
       })
     } finally {
@@ -159,7 +159,7 @@ export function AutoDmcaWidget({
       console.error('Error submitting takedown:', error)
       toast({
         title: 'Submission Failed',
-        description: error.message || 'Failed to submit DMCA request',
+        description: error instanceof Error ? error.message : 'Failed to submit DMCA request',
         variant: 'destructive'
       })
     } finally {

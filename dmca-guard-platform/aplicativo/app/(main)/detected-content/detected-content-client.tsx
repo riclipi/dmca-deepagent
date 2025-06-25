@@ -44,6 +44,7 @@ interface DetectedContent {
   title: string;
   url: string;             // Corrigido de infringingUrl
   platform: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   createdAt: string;       // Corrigido de detectedAt
   isConfirmed: boolean;          // Corrigido de isConfirmed
   brandProfile: BrandProfileMin;

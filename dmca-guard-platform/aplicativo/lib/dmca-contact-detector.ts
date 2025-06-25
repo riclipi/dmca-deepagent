@@ -131,7 +131,7 @@ export class DmcaContactDetector {
       }
 
     } catch (error) {
-      throw new Error(`Failed to scan page: ${error.message}`)
+      throw new Error(`Failed to scan page: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
