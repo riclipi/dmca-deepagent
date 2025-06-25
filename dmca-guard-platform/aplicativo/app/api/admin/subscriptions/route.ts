@@ -8,6 +8,134 @@ import { z } from 'zod'
 export const dynamic = 'force-dynamic'
 
 /**
+ * @swagger
+ * /api/admin/subscriptions:
+ *   get:
+ *     summary: List all subscriptions (Admin only)
+ *     description: Retrieve a paginated list of subscriptions with filtering options
+ *     tags:
+ *       - Admin - Subscriptions
+ *     security:
+ *       - sessionAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [ACTIVE, CANCELLED, EXPIRED, TRIAL, PAST_DUE, SUSPENDED]
+ *         description: Filter by subscription status
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         description: Filter by user ID
+ *       - in: query
+ *         name: planId
+ *         schema:
+ *           type: string
+ *         description: Filter by plan ID
+ *     responses:
+ *       200:
+ *         description: List of subscriptions with pagination info
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PaginatedResponse'
+ *       403:
+ *         description: Access denied - Admin privileges required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   post:
+ *     summary: Create new subscription (Admin only)
+ *     description: Create a new subscription for a user
+ *     tags:
+ *       - Admin - Subscriptions
+ *     security:
+ *       - sessionAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - planId
+ *               - startDate
+ *               - amount
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: User ID to create subscription for
+ *               planId:
+ *                 type: string
+ *                 description: Plan ID for the subscription
+ *               status:
+ *                 type: string
+ *                 enum: [ACTIVE, CANCELLED, EXPIRED, TRIAL, PAST_DUE, SUSPENDED]
+ *                 default: ACTIVE
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *               amount:
+ *                 type: number
+ *                 format: decimal
+ *               currency:
+ *                 type: string
+ *                 default: BRL
+ *               paymentMethod:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Subscription created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Subscription'
+ *       400:
+ *         description: Invalid data or user already has active subscription
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Access denied - Admin privileges required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: User or plan not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       409:
+ *         description: User already has active subscription
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
  * Schema de validação para criar/atualizar assinatura
  */
 const subscriptionSchema = z.object({

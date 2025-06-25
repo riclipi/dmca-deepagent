@@ -6,6 +6,37 @@ import { prisma } from '@/lib/db'
 export const dynamic = 'force-dynamic'
 
 /**
+ * @swagger
+ * /api/analytics/summary:
+ *   get:
+ *     summary: Get analytics summary
+ *     description: Retrieve comprehensive analytics data including user stats, revenue, and performance metrics
+ *     tags:
+ *       - Analytics
+ *     security:
+ *       - sessionAuth: []
+ *     responses:
+ *       200:
+ *         description: Analytics summary data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AnalyticsSummary'
+ *       401:
+ *         description: Unauthorized - Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
  * GET /api/analytics/summary
  * Retorna resumo de analytics para o usuário atual
  */
