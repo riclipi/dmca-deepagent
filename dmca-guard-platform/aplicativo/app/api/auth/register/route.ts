@@ -26,6 +26,9 @@ export async function POST(request: NextRequest) {
     // Hash da senha
     const hashedPassword = await bcrypt.hash(validatedData.password, 12)
 
+    // Verificar se é o super user
+    const isSuperUser = validatedData.email === process.env.SUPER_USER_EMAIL
+
     // Criar usuário
     const user = await prisma.user.create({
       data: {
@@ -34,7 +37,10 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         phone: validatedData.phone,
         document: validatedData.document,
-        dateOfBirth: validatedData.dateOfBirth ? new Date(validatedData.dateOfBirth) : null
+        dateOfBirth: validatedData.dateOfBirth ? new Date(validatedData.dateOfBirth) : null,
+        planType: isSuperUser ? 'SUPER_USER' : 'FREE',
+        status: isSuperUser ? 'ACTIVE' : 'PENDING_VERIFICATION',
+        emailVerified: isSuperUser
       },
       select: {
         id: true,
