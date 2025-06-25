@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/router'
+import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Globe } from 'lucide-react'
 import {
@@ -10,12 +10,29 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
+const locales = ['en', 'pt']
+
 export function LanguageSwitcher() {
+  const pathname = usePathname()
   const router = useRouter()
-  const { locale, locales, asPath } = router
+  
+  // Get current locale from pathname
+  const currentLocale = pathname.startsWith('/en') ? 'en' : 'pt'
   
   const switchLanguage = (newLocale: string) => {
-    router.push(asPath, asPath, { locale: newLocale })
+    let newPath = pathname
+    
+    // Remove current locale prefix if it exists
+    if (pathname.startsWith('/en')) {
+      newPath = pathname.slice(3) || '/'
+    }
+    
+    // Add new locale prefix if it's not the default (pt)
+    if (newLocale === 'en') {
+      newPath = `/en${newPath}`
+    }
+    
+    router.push(newPath)
   }
   
   const getLanguageName = (locale: string) => {
@@ -37,20 +54,20 @@ export function LanguageSwitcher() {
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <Globe className="w-4 h-4" />
-          <span className="hidden sm:inline">{getLanguageName(locale || 'pt')}</span>
-          <span className="sm:hidden">{getLanguageFlag(locale || 'pt')}</span>
+          <span className="hidden sm:inline">{getLanguageName(currentLocale)}</span>
+          <span className="sm:hidden">{getLanguageFlag(currentLocale)}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {locales?.map((lng) => (
+        {locales.map((locale) => (
           <DropdownMenuItem
-            key={lng}
-            onClick={() => switchLanguage(lng)}
-            className={`gap-2 ${locale === lng ? 'bg-muted' : ''}`}
+            key={locale}
+            onClick={() => switchLanguage(locale)}
+            className={`gap-2 ${currentLocale === locale ? 'bg-muted' : ''}`}
           >
-            <span>{getLanguageFlag(lng)}</span>
-            <span>{getLanguageName(lng)}</span>
-            {locale === lng && <span className="ml-auto text-xs">✓</span>}
+            <span>{getLanguageFlag(locale)}</span>
+            <span>{getLanguageName(locale)}</span>
+            {currentLocale === locale && <span className="ml-auto text-xs">✓</span>}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

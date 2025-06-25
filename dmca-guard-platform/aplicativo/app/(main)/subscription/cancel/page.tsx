@@ -313,7 +313,7 @@ export default function CancelSubscriptionPage() {
                 ⚠️ {t('retention.warningTitle')}
               </h3>
               <ul className="text-red-700 space-y-1 text-sm">
-                {t('retention.warningItems').map((item, index) => (
+                {(t('retention.warningItems') as string[]).map((item: string, index: number) => (
                   <li key={index}>• {item}</li>
                 ))}
               </ul>
