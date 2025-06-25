@@ -43,7 +43,7 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions)
     
-    if (!await checkAdminAccess(session)) {
+    if (!session?.user?.id || !await checkAdminAccess(session)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 
@@ -161,7 +161,7 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions)
     
-    if (!await checkAdminAccess(session)) {
+    if (!session?.user?.id || !await checkAdminAccess(session)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 
