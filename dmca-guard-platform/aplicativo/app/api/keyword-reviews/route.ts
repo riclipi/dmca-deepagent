@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     ])
 
     // Buscar informações dos brand profiles
-    const brandProfileIds = [...new Set(reviews.map(r => r.brandProfileId))]
+    const brandProfileIds = Array.from(new Set(reviews.map(r => r.brandProfileId)))
     const brandProfiles = await prisma.brandProfile.findMany({
       where: {
         id: { in: brandProfileIds },
@@ -332,7 +332,7 @@ export async function PATCH(request: NextRequest) {
         }
 
         // Aplicar atualizações aos brand profiles
-        for (const [brandProfileId, update] of brandProfileUpdates) {
+        for (const [brandProfileId, update] of Array.from(brandProfileUpdates.entries())) {
           await tx.brandProfile.update({
             where: { id: brandProfileId },
             data: {

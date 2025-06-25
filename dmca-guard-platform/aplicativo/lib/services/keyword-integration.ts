@@ -106,7 +106,7 @@ export class KeywordIntegrationService {
           safeKeywords: result.safe,
           moderateKeywords: result.moderate,
           dangerousKeywords: result.dangerous,
-          keywordConfig: config,
+          keywordConfig: config as any,
           lastKeywordUpdate: new Date()
         }
       })
@@ -177,7 +177,7 @@ export class KeywordIntegrationService {
     }
 
     // Remover duplicatas e keywords vazias
-    return [...new Set(keywords.filter(k => k && k.trim().length > 0))]
+    return Array.from(new Set(keywords.filter(k => k && k.trim().length > 0)))
   }
 
   /**

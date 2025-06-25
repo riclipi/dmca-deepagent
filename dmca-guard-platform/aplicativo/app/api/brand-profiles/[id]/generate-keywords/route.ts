@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -17,6 +17,7 @@ export async function POST(
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
+    const resolvedParams = await params
     const body = await request.json()
     const { 
       config = {},
@@ -26,7 +27,7 @@ export async function POST(
     // Verificar se o brand profile pertence ao usuário
     const brandProfile = await prisma.brandProfile.findFirst({
       where: {
-        id: params.id,
+        id: resolvedParams.id,
         userId: session.user.id,
         isActive: true
       }
@@ -69,7 +70,14 @@ export async function POST(
     const generationResult = safeKeywordGenerator.generateSafeKeywords(keywordConfig)
 
     // Criar entradas de review para keywords moderadas
-    const keywordReviews = []
+    const keywordReviews: Array<{
+      userId: string;
+      brandProfileId: string;
+      keyword: string;
+      riskScore: number;
+      riskReasons: string[];
+      status: 'PENDING';
+    }> = []
     for (const moderateKeyword of generationResult.moderate) {
       const riskAnalysis = safeKeywordGenerator.validateExistingKeywords([moderateKeyword], brandProfile.brandName)[0]
       
@@ -79,7 +87,7 @@ export async function POST(
         keyword: moderateKeyword,
         riskScore: riskAnalysis.riskScore,
         riskReasons: riskAnalysis.riskReasons,
-        status: 'PENDING' as const
+        status: 'PENDING'
       })
     }
 
@@ -92,7 +100,7 @@ export async function POST(
           safeKeywords: generationResult.safe,
           moderateKeywords: generationResult.moderate,
           dangerousKeywords: generationResult.dangerous,
-          keywordConfig: keywordConfig,
+          keywordConfig: keywordConfig as any,
           lastKeywordUpdate: new Date()
         }
       })
@@ -185,7 +193,7 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -193,10 +201,12 @@ export async function GET(
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
+    const resolvedParams = await params
+    
     // Buscar informações atuais de keywords
     const brandProfile = await prisma.brandProfile.findFirst({
       where: {
-        id: params.id,
+        id: resolvedParams.id,
         userId: session.user.id,
         isActive: true
       },

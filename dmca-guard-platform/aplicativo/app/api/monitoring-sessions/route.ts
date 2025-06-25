@@ -109,7 +109,9 @@ export async function POST(request: NextRequest) {
         name: validatedData.name,
         description: validatedData.description,
         targetPlatforms: validatedData.targetPlatforms,
-        searchTerms: validatedData.searchTerms,
+        useProfileKeywords: validatedData.useProfileKeywords ?? true,
+        customKeywords: validatedData.customKeywords ?? [],
+        excludeKeywords: validatedData.excludeKeywords ?? [],
         scanFrequency: validatedData.scanFrequency,
         nextScanAt: new Date(Date.now() + validatedData.scanFrequency * 60 * 60 * 1000)
       },

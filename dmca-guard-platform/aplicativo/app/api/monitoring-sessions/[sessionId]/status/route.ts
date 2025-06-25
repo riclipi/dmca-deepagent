@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -16,9 +16,11 @@ export async function GET(
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
+    const resolvedParams = await params
+    
     const monitoringSession = await prisma.monitoringSession.findFirst({
       where: {
-        id: params.sessionId,
+        id: resolvedParams.sessionId,
         userId: session.user.id,
         isActive: true
       },
@@ -86,7 +88,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -94,6 +96,7 @@ export async function POST(
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
+    const resolvedParams = await params
     const body = await request.json()
     const { 
       status, 
@@ -107,7 +110,7 @@ export async function POST(
     // Verificar se a sessão pertence ao usuário
     const existingSession = await prisma.monitoringSession.findFirst({
       where: {
-        id: params.sessionId,
+        id: resolvedParams.sessionId,
         userId: session.user.id,
         isActive: true
       }
@@ -163,7 +166,7 @@ export async function POST(
     }
 
     const updatedSession = await prisma.monitoringSession.update({
-      where: { id: params.sessionId },
+      where: { id: resolvedParams.sessionId },
       data: updateData,
       select: {
         id: true,
@@ -195,7 +198,7 @@ export async function POST(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -203,13 +206,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
+    const resolvedParams = await params
     const body = await request.json()
     const { action } = body
 
     // Verificar se a sessão pertence ao usuário
     const monitoringSession = await prisma.monitoringSession.findFirst({
       where: {
-        id: params.sessionId,
+        id: resolvedParams.sessionId,
         userId: session.user.id,
         isActive: true
       }
@@ -292,7 +296,7 @@ export async function PATCH(
     }
 
     const updatedSession = await prisma.monitoringSession.update({
-      where: { id: params.sessionId },
+      where: { id: resolvedParams.sessionId },
       data: updateData,
       select: {
         id: true,
