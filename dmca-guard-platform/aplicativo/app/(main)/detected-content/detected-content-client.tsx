@@ -70,45 +70,62 @@ export default function DetectedContentClient() {
   const [isSubmittingTakedown, setIsSubmittingTakedown] = useState(false)
 
   // --- FUNÇÃO DE BUSCA CORRIGIDA ---
-  const fetchDetectedContent = useCallback(async (page: number = 1) => {
+  const fetchDetectedContent = useCallback(async (page: number = 1, signal?: AbortSignal) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/detected-content?page=${page}&limit=${ITEMS_PER_PAGE}`)
+      const response = await fetch(`/api/detected-content?page=${page}&limit=${ITEMS_PER_PAGE}`, { signal })
       if (response.ok) {
-        const apiResponse = await response.json();
-        setDetectedContents(apiResponse.data || [])
-        setTotalPages(apiResponse.pagination.pages || 1)
-        setTotalItems(apiResponse.pagination.total || 0)
-        setCurrentPage(apiResponse.pagination.page || page)
+        const apiResponse = await response.json()
+        if (!signal?.aborted) {
+          setDetectedContents(apiResponse.data || [])
+          setTotalPages(apiResponse.pagination.pages || 1)
+          setTotalItems(apiResponse.pagination.total || 0)
+          setCurrentPage(apiResponse.pagination.page || page)
+        }
       } else {
-        toast.error('Erro ao carregar conteúdo detectado.')
+        if (!signal?.aborted) {
+          toast.error('Erro ao carregar conteúdo detectado.')
+        }
       }
     } catch (error) {
-      console.error("Fetch error:", error)
-      toast.error('Erro de conexão ao carregar conteúdo.')
+      if (!signal?.aborted) {
+        console.error("Fetch error:", error)
+        toast.error('Erro de conexão ao carregar conteúdo.')
+      }
     } finally {
-      setIsLoading(false)
+      if (!signal?.aborted) {
+        setIsLoading(false)
+      }
     }
   }, [])
 
   useEffect(() => {
-    fetchDetectedContent(currentPage)
+    const abortController = new AbortController()
+    fetchDetectedContent(currentPage, abortController.signal)
+    
+    return () => {
+      abortController.abort()
+    }
   }, [fetchDetectedContent, currentPage])
 
   const handleConfirmContent = async (contentId: string) => {
+    const abortController = new AbortController()
     try {
       const response = await fetch(`/api/detected-content/${contentId}/confirm`, {
         method: 'POST',
+        signal: abortController.signal
       })
       if (response.ok) {
         toast.success('Conteúdo confirmado com sucesso!')
-        fetchDetectedContent(currentPage); // Re-fetch data to show updated status
+        fetchDetectedContent(currentPage, abortController.signal)
       } else {
         const errorData = await response.json().catch(() => ({}))
         toast.error(errorData.error || 'Erro ao confirmar conteúdo.')
       }
     } catch (error) {
-      toast.error('Erro de conexão ao confirmar conteúdo.')
+      if (!abortController.signal.aborted) {
+        toast.error('Erro de conexão ao confirmar conteúdo.')
+      }
     }
   }
 
@@ -151,7 +168,7 @@ const handleTakedownSubmit = async (e: React.FormEvent) => {
     }
 
     const newTakedownRequest = await response.json();
-    toast.success('Solicitação criada com sucesso!');
+    toast.success('Takedown criado e enviado por email com sucesso!');
     setIsTakedownModalOpen(false);
     fetchDetectedContent(currentPage);
   } catch (error) {

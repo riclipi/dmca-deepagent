@@ -101,56 +101,68 @@ export default function DashboardClient({ session }: DashboardClientProps) {
 
 
   useEffect(() => {
-    // Verificamos se temos o ID do usuário antes de buscar os dados
-    if (session?.user?.id) {
-      fetchStats(session.user.id)
-    } else {
-      setIsLoading(false) // Se não tiver ID, paramos o loading
+    const abortController = new AbortController()
+    
+    const fetchData = async () => {
+      if (session?.user?.id) {
+        await fetchStats(session.user.id, abortController.signal)
+        await fetchMonitoringSessions(abortController.signal)
+      } else {
+        setIsLoading(false)
+      }
     }
-  }, [session]) // O useEffect agora depende da prop 'session'
+    
+    fetchData()
+    
+    return () => {
+      abortController.abort()
+    }
+  }, [session])
 
-  // A função agora recebe o userId e o envia para a API
-  const fetchStats = async (userId: string) => {
-    setIsLoading(true); // Adicionado para garantir que o loading seja ativado
+  const fetchStats = async (userId: string, signal?: AbortSignal) => {
+    setIsLoading(true)
     try {
-      // Passamos o userId como um parâmetro de busca na URL
-      const response = await fetch(`/api/dashboard/stats?userId=${userId}`)
+      const response = await fetch(`/api/dashboard/stats?userId=${userId}`, { signal })
       if (response.ok) {
         const data = await response.json()
-        setStats(data)
+        if (!signal?.aborted) {
+          setStats(data)
+        }
       }
     } catch (error) {
-      console.error('Erro ao buscar estatísticas:', error)
+      if (!signal?.aborted) {
+        console.error('Erro ao buscar estatísticas:', error)
+      }
     } finally {
-      setIsLoading(false)
+      if (!signal?.aborted) {
+        setIsLoading(false)
+      }
     }
   }
 
-  const fetchMonitoringSessions = async () => {
-    if (!session?.user?.id) return;
+  const fetchMonitoringSessions = async (signal?: AbortSignal) => {
+    if (!session?.user?.id) return
     try {
-      const response = await fetch(`/api/monitoring-sessions?userId=${session.user.id}`);
+      const response = await fetch(`/api/monitoring-sessions?userId=${session.user.id}`, { signal })
       if (response.ok) {
-        const data = await response.json();
-        setMonitoringSessionsList(data.sessions || []); // Assuming API returns { sessions: [] }
+        const data = await response.json()
+        if (!signal?.aborted) {
+          setMonitoringSessionsList(data.sessions || [])
+        }
       } else {
-        console.error('Erro ao buscar sessões de monitoramento:', response.statusText);
-        setMonitoringSessionsList([]); // Define como vazio em caso de erro
+        if (!signal?.aborted) {
+          console.error('Erro ao buscar sessões de monitoramento:', response.statusText)
+          setMonitoringSessionsList([])
+        }
       }
     } catch (error) {
-      console.error('Erro ao buscar sessões de monitoramento:', error);
-      setMonitoringSessionsList([]); // Define como vazio em caso de erro
+      if (!signal?.aborted) {
+        console.error('Erro ao buscar sessões de monitoramento:', error)
+        setMonitoringSessionsList([])
+      }
     }
-  };
+  }
 
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchStats(session.user.id);
-      fetchMonitoringSessions(); // Buscar sessões ao carregar o dashboard
-    } else {
-      setIsLoading(false);
-    }
-  }, [session]);
 
 
   const handleManualAddContent = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -430,7 +442,7 @@ export default function DashboardClient({ session }: DashboardClientProps) {
                     </Button>
                   </a>
                 </Link>
-                <Link href="/dashboard/takedown-requests"> {/* UPDATED LINK */}
+                <Link href="/takedown-requests">
                   <Button className="w-full justify-start" variant="outline">
                     <Mail className="h-4 w-4 mr-2" />
                     Ver Takedowns
@@ -446,7 +458,7 @@ export default function DashboardClient({ session }: DashboardClientProps) {
                   <FilePlus className="h-4 w-4 mr-2" />
                   Adicionar Conteúdo Detectado Manualmente
                 </Button>
-                <Link href="/dashboard/whitelist">
+                <Link href="/whitelist">
                   <Button className="w-full justify-start" variant="outline">
                     <ListFilter className="h-4 w-4 mr-2" />
                     Gerenciar Whitelist de Domínios
@@ -475,7 +487,7 @@ export default function DashboardClient({ session }: DashboardClientProps) {
                   Status das suas solicitações de remoção
                 </CardDescription>
               </div>
-                <Link href="/dashboard/takedown-requests"> {/* UPDATED LINK */}
+                <Link href="/takedown-requests">
                 <Button variant="outline" size="sm">
                   Ver Todos
                 </Button>
