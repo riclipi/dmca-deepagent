@@ -10,9 +10,12 @@ export class ViolationDetector {
 
   constructor(brandProfile: BrandProfile) {
     this.brandProfile = brandProfile
-    this.keywords = this.generateKeywords()
+    this.keywords = [...brandProfile.keywords, ...brandProfile.variations]
     this.geminiClient = new GeminiClient()
-    this.initializePatterns()
+    
+    // Inicializar padrões suspeitos
+    this.suspiciousPatterns = this.buildSuspiciousPatterns()
+    this.contextPatterns = this.buildContextPatterns()
   }
 
   /**
@@ -471,6 +474,38 @@ export class ViolationDetector {
     }
 
     return Array.from(keywords)
+  }
+
+  /**
+   * Construir padrões suspeitos
+   */
+  private buildSuspiciousPatterns(): RegExp[] {
+    return [
+      /\b(leaked?|leak)\b/gi,
+      /\b(nude|naked|nudes)\b/gi,
+      /\b(sex|sexy|sexual)\b/gi,
+      /\b(porn|porno|pornography)\b/gi,
+      /\b(nsfw|adult)\b/gi,
+      /\b(onlyfans|only\s*fans)\b/gi,
+      /\b(premium|exclusive|vip)\b/gi,
+      /\b(private|personal)\b/gi,
+      /\b(free\s*download|download\s*free)\b/gi,
+      /\b(mega\s*link|telegram\s*link)\b/gi,
+      /\b(full\s*video|complete\s*set)\b/gi,
+      /\b(uncensored|uncut)\b/gi
+    ]
+  }
+
+  /**
+   * Construir padrões contextuais
+   */
+  private buildContextPatterns(): RegExp[] {
+    return [
+      /\b(hack|hacked|stolen)\b/gi,
+      /\b(icloud\s*hack|phone\s*hack)\b/gi,
+      /\b(celebrity\s*leak|celeb\s*nude)\b/gi,
+      /\b(revenge\s*porn|ex\s*girlfriend)\b/gi
+    ]
   }
 
   /**

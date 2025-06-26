@@ -83,6 +83,7 @@ model BrandProfile {
   detectedContent    DetectedContent[]
   monitoringSessions MonitoringSession[]
   referenceImages    ReferenceImage[]
+  scanSessions       ScanSession[]
 
   @@map("brand_profiles")
 }
@@ -620,7 +621,8 @@ model ScanSession {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   
-  user                User      @relation(fields: [userId], references: [id])
+  user                User         @relation(fields: [userId], references: [id])
+  brandProfile        BrandProfile @relation(fields: [brandProfileId], references: [id])
   
   @@index([userId, status])
   @@index([startedAt])

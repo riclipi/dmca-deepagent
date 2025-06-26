@@ -34,7 +34,7 @@ export async function GET(
         brandProfile: {
           select: {
             id: true,
-            name: true
+            brandName: true
           }
         }
       }
@@ -110,10 +110,10 @@ export async function GET(
       timing: {
         startedAt: scanSession.startedAt,
         elapsedMs: elapsed,
-        elapsedFormatted: this.formatDuration(elapsed),
+        elapsedFormatted: formatDuration(elapsed),
         averageTimePerSite: Math.round(avgTimePerSite),
         estimatedRemainingMs: estimatedRemaining,
-        estimatedRemainingFormatted: this.formatDuration(estimatedRemaining)
+        estimatedRemainingFormatted: formatDuration(estimatedRemaining)
       },
       violations: {
         total: recentViolations.length,
@@ -123,7 +123,7 @@ export async function GET(
           url: v.url,
           title: v.title,
           riskLevel: v.riskLevel,
-          confidence: v.confidence,
+          confidence: v.aiConfidence,
           detectedAt: v.detectedAt,
           site: v.knownSite?.domain
         }))

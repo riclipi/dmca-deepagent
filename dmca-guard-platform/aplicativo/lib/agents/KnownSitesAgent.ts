@@ -129,7 +129,7 @@ export class KnownSitesAgent {
           })
         }
 
-        currentIndex += batch.size
+        currentIndex += batch.length
         
         // Delay entre lotes para evitar sobrecarga
         if (currentIndex < sites.length) {
@@ -406,11 +406,8 @@ export class KnownSitesAgent {
           title: violation.title,
           description: violation.description,
           riskLevel: violation.riskLevel as any,
-          confidence: violation.confidence,
-          detectionMethod: violation.detectionMethod,
-          screenshot: violation.screenshot,
-          metadata: violation.metadata,
-          detectedAt: violation.detectedAt,
+          aiConfidence: violation.confidence,
+          detectionMethod: violation.detectionMethod as any,
           knownSiteId: violation.knownSiteId
         }
       })

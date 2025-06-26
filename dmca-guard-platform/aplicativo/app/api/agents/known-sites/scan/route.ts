@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       estimatedDuration: '15-30 minutos',
       brandProfile: {
         id: brandProfile.id,
-        name: brandProfile.name
+        name: brandProfile.brandName
       }
     })
 
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
         brandProfile: {
           select: {
             id: true,
-            name: true
+            brandName: true
           }
         }
       },

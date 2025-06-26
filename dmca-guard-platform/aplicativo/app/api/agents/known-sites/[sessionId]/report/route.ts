@@ -34,7 +34,7 @@ export async function GET(
         brandProfile: {
           select: {
             id: true,
-            name: true,
+            brandName: true,
             keywords: true
           }
         }
@@ -170,15 +170,14 @@ export async function GET(
           url: v.url,
           title: v.title,
           riskLevel: v.riskLevel,
-          confidence: v.confidence,
+          confidence: v.aiConfidence,
           detectionMethod: v.detectionMethod,
           detectedAt: v.detectedAt,
           site: {
             domain: v.knownSite?.domain,
             category: v.knownSite?.category,
             platform: v.knownSite?.platform
-          },
-          metadata: v.metadata
+          }
         }))
       },
       analysis: {

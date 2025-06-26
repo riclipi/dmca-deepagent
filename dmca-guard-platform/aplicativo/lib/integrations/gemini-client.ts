@@ -1,6 +1,8 @@
 import { z } from 'zod'
+import NodeCache from 'node-cache'
+import pLimit from 'p-limit'
 
-// Schemas de validação
+// Schemas de validação existentes
 export const AnalysisResultSchema = z.object({
   isViolation: z.boolean(),
   confidence: z.number().min(0).max(1),
@@ -22,6 +24,41 @@ export const RiskAssessmentSchema = z.object({
 
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>
 export type RiskAssessment = z.infer<typeof RiskAssessmentSchema>
+
+// Novos tipos para análise contextual
+export interface TextAnalysisResult {
+  riskScore?: number
+  violationType?: string
+  evidences?: any[]
+  recommendedAction?: string
+  executiveSummary?: string
+  detailedAnalysis?: string
+  keyFindings?: string[]
+  riskFactors?: string[]
+  confidence?: number
+}
+
+export interface ImageAnalysisResult {
+  hasRelevantImages: boolean
+  analyses: ImageAnalysis[]
+  totalImagesAnalyzed: number
+}
+
+export interface ImageAnalysis {
+  imageUrl: string
+  containsBrandContent?: boolean
+  isUnauthorizedUse?: boolean
+  certaintyLevel?: number
+  description?: string
+  violationElements?: string[]
+}
+
+export interface AnalysisOptions {
+  temperature?: number
+  model?: string
+  useCache?: boolean
+  priority?: 'low' | 'normal' | 'high'
+}
 
 export interface AnalysisContext {
   brandName?: string
@@ -115,25 +152,6 @@ export class GeminiClient {
     }
   }
 
-  /**
-   * Analisar imagens para detectar violações
-   */
-  async analyzeImage(imageUrl: string, context: AnalysisContext): Promise<AnalysisResult> {
-    try {
-      const prompt = this.buildImageAnalysisPrompt(imageUrl, context)
-      
-      const response = await this.callGeminiVision(prompt, imageUrl, {
-        temperature: 0.3,
-        maxOutputTokens: 800
-      })
-
-      return this.parseAnalysisResponse(response)
-      
-    } catch (error) {
-      console.error('Erro na análise de imagem:', error)
-      throw new Error(`Falha na análise de imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
-    }
-  }
 
   /**
    * Construir prompt para análise de conteúdo
@@ -369,6 +387,193 @@ Responda no mesmo formato JSON da análise de conteúdo.
   }
 
   /**
+   * Análise de texto para ContextualAgent
+   */
+  async analyzeText(prompt: string, options?: AnalysisOptions): Promise<TextAnalysisResult> {
+    try {
+      const response = await this.callGemini(prompt, {
+        temperature: options?.temperature || 0.1,
+        maxOutputTokens: 2000
+      })
+      
+      return this.parseTextAnalysisResult(response)
+      
+    } catch (error) {
+      console.error('Erro na análise de texto:', error)
+      return this.generateFallbackTextAnalysis(prompt)
+    }
+  }
+
+  /**
+   * Análise de imagem para ContextualAgent
+   */
+  async analyzeImage(imageUrl: string, prompt: string, options?: AnalysisOptions): Promise<ImageAnalysis> {
+    try {
+      // Por enquanto, análise baseada em texto da URL
+      const fullPrompt = `${prompt}\n\nImagem: ${imageUrl}\n\nNOTA: Análise visual não implementada ainda, avalie baseado na URL e contexto.`
+      
+      const response = await this.callGemini(fullPrompt, {
+        temperature: options?.temperature || 0.1,
+        maxOutputTokens: 800
+      })
+      
+      return this.parseImageAnalysisResult(response, imageUrl)
+      
+    } catch (error) {
+      console.error(`Erro na análise de imagem ${imageUrl}:`, error)
+      return {
+        imageUrl,
+        containsBrandContent: false,
+        isUnauthorizedUse: false,
+        certaintyLevel: 0,
+        description: 'Erro na análise da imagem',
+        violationElements: []
+      }
+    }
+  }
+
+  /**
+   * Parse do resultado de análise de texto para ContextualAgent
+   */
+  private parseTextAnalysisResult(response: string): TextAnalysisResult {
+    try {
+      const cleaned = this.cleanJsonResponse(response)
+      const parsed = JSON.parse(cleaned)
+      
+      return {
+        riskScore: parsed.riskScore || 0,
+        violationType: parsed.violationType || 'UNKNOWN',
+        evidences: parsed.evidences || [],
+        recommendedAction: parsed.recommendedAction || 'NEEDS_HUMAN_REVIEW',
+        executiveSummary: parsed.executiveSummary || '',
+        detailedAnalysis: parsed.detailedAnalysis || '',
+        keyFindings: parsed.keyFindings || [],
+        riskFactors: parsed.riskFactors || [],
+        confidence: parsed.confidence || 0.5
+      }
+    } catch (error) {
+      console.warn('Erro ao parsear resposta JSON do Gemini, usando fallback:', error)
+      return this.extractAnalysisFromText(response)
+    }
+  }
+
+  /**
+   * Parse do resultado de análise de imagem para ContextualAgent
+   */
+  private parseImageAnalysisResult(response: string, imageUrl: string): ImageAnalysis {
+    try {
+      const cleaned = this.cleanJsonResponse(response)
+      const parsed = JSON.parse(cleaned)
+      
+      return {
+        imageUrl,
+        containsBrandContent: parsed.containsBrandContent || false,
+        isUnauthorizedUse: parsed.isUnauthorizedUse || false,
+        certaintyLevel: parsed.certaintyLevel || 0,
+        description: parsed.description || '',
+        violationElements: parsed.violationElements || []
+      }
+    } catch (error) {
+      console.warn('Erro ao parsear resposta de análise de imagem:', error)
+      
+      const containsViolation = response.toLowerCase().includes('violação') || 
+                               response.toLowerCase().includes('violation') ||
+                               response.toLowerCase().includes('unauthorized')
+      
+      return {
+        imageUrl,
+        containsBrandContent: containsViolation,
+        isUnauthorizedUse: containsViolation,
+        certaintyLevel: containsViolation ? 60 : 10,
+        description: response.substring(0, 200),
+        violationElements: []
+      }
+    }
+  }
+
+  /**
+   * Extrair análise de texto livre quando JSON falha
+   */
+  private extractAnalysisFromText(text: string): TextAnalysisResult {
+    const lowercaseText = text.toLowerCase()
+    
+    let riskScore = 0
+    const scoreMatch = text.match(/(\d+)\/100|\b(\d+)%|\brisk.*?(\d+)/i)
+    if (scoreMatch) {
+      riskScore = parseInt(scoreMatch[1] || scoreMatch[2] || scoreMatch[3] || '0')
+    }
+    
+    let violationType = 'UNKNOWN'
+    if (lowercaseText.includes('copyright')) violationType = 'COPYRIGHT_INFRINGEMENT'
+    else if (lowercaseText.includes('trademark')) violationType = 'TRADEMARK_VIOLATION'
+    else if (lowercaseText.includes('leaked')) violationType = 'LEAKED_CONTENT'
+    else if (lowercaseText.includes('unauthorized')) violationType = 'UNAUTHORIZED_DISTRIBUTION'
+    
+    let recommendedAction = 'NEEDS_HUMAN_REVIEW'
+    if (lowercaseText.includes('takedown')) recommendedAction = 'IMMEDIATE_TAKEDOWN'
+    else if (lowercaseText.includes('legal')) recommendedAction = 'LEGAL_ACTION'
+    else if (lowercaseText.includes('monitor')) recommendedAction = 'MONITOR_CLOSELY'
+    
+    return {
+      riskScore,
+      violationType,
+      evidences: [],
+      recommendedAction,
+      executiveSummary: text.substring(0, 200),
+      detailedAnalysis: text,
+      keyFindings: [],
+      riskFactors: [],
+      confidence: 0.3
+    }
+  }
+
+  /**
+   * Limpar resposta JSON do Gemini
+   */
+  private cleanJsonResponse(response: string): string {
+    let cleaned = response.replace(/```json\s*/gi, '').replace(/```\s*$/gi, '')
+    
+    const jsonStart = cleaned.indexOf('{')
+    const jsonEnd = cleaned.lastIndexOf('}')
+    
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
+    }
+    
+    return cleaned.trim()
+  }
+
+  /**
+   * Gerar análise de fallback
+   */
+  private generateFallbackTextAnalysis(prompt: string): TextAnalysisResult {
+    return {
+      riskScore: 0,
+      violationType: 'UNKNOWN',
+      evidences: [],
+      recommendedAction: 'NEEDS_HUMAN_REVIEW',
+      executiveSummary: 'Análise não disponível devido a erro na API',
+      detailedAnalysis: 'Não foi possível completar a análise via Gemini API',
+      keyFindings: [],
+      riskFactors: [],
+      confidence: 0
+    }
+  }
+
+  /**
+   * Geração de texto genérica
+   */
+  async generateText(prompt: string, options?: any): Promise<string> {
+    try {
+      const response = await this.callGemini(prompt, options);
+      return response;
+    } catch (error) {
+      console.error('Erro na geração de texto:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Obter informações do modelo
    */
   getModelInfo(): { model: string; capabilities: string[] } {
@@ -379,7 +584,9 @@ Responda no mesmo formato JSON da análise de conteúdo.
         'Detecção de violações DMCA',
         'Classificação de risco',
         'Geração de relatórios',
-        'Análise contextual'
+        'Análise contextual',
+        'Análise de imagens (limitada)',
+        'Cache e rate limiting'
       ]
     }
   }

@@ -555,7 +555,7 @@ export class SessionManager {
           violations: number
           highestRisk: string
         }>,
-        errors: report.errors as Array<{
+        errors: (report.errors as unknown || []) as Array<{
           site: string
           error: string
           timestamp: Date

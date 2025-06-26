@@ -143,6 +143,8 @@ export interface CacheEntry {
   hits: number
 }
 
+export type AgentStatus = 'IDLE' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'ERROR'
+
 export type AgentEventType = 
   | 'session_started'
   | 'site_scanning'

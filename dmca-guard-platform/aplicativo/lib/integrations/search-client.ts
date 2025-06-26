@@ -28,6 +28,40 @@ export const SearchOptionsSchema = z.object({
 export type SearchResult = z.infer<typeof SearchResultSchema>
 export type SearchOptions = z.infer<typeof SearchOptionsSchema>
 
+// Interfaces para DiscoveryAgent
+export interface SearchQuery {
+  terms: string[]
+  excludeTerms?: string[]
+  siteRestriction?: string
+  dateRange?: DateRange
+  maxResults: number
+  priority: 'HIGH' | 'MEDIUM' | 'LOW'
+}
+
+export interface DateRange {
+  start?: Date
+  end?: Date
+}
+
+export interface APIRotator {
+  getOptimalProvider(query: SearchQuery): Promise<string>
+}
+
+export interface RateLimiter {
+  canMakeRequest(provider: string): boolean
+  recordRequest(provider: string): void
+}
+
+export interface SearchCache {
+  get(query: SearchQuery): Promise<CachedResult | null>
+  store(query: SearchQuery, results: SearchResult[]): Promise<void>
+}
+
+export interface CachedResult {
+  results: SearchResult[]
+  timestamp: Date
+}
+
 export interface SearchStats {
   totalResults: number
   searchTime: number
@@ -552,5 +586,134 @@ export class SearchClient {
     }
 
     return results
+  }
+
+  /**
+   * Método principal para DiscoveryAgent - busca com provider específico
+   */
+  async search(provider: string, query: SearchQuery): Promise<SearchResult[]> {
+    // Converter SearchQuery para query string
+    const queryString = this.buildQueryString(query)
+    
+    // Converter para SearchOptions
+    const options: Partial<SearchOptions> = {
+      limit: query.maxResults,
+      site: query.siteRestriction
+    }
+
+    switch (provider) {
+      case 'serper':
+        return this.searchWithSerper(queryString, options)
+      case 'google':
+        return this.searchWithGoogle(queryString, options)
+      case 'bing':
+        return this.searchWithBing(queryString, options)
+      default:
+        throw new Error(`Provider não suportado: ${provider}`)
+    }
+  }
+
+  /**
+   * Busca inteligente com múltiplos provedores
+   */
+  async intelligentSearchWithQuery(query: SearchQuery): Promise<SearchResult[]> {
+    const queryString = this.buildQueryString(query)
+    const options: Partial<SearchOptions> = {
+      limit: query.maxResults,
+      site: query.siteRestriction
+    }
+
+    const result = await this.intelligentSearch(queryString, options)
+    return result.results
+  }
+
+  /**
+   * Busca específica em sites suspeitos baseada em padrões
+   */
+  async targetedSiteSearch(patterns: any[]): Promise<SearchResult[]> {
+    const results: SearchResult[] = []
+    
+    for (const pattern of patterns) {
+      try {
+        const query: SearchQuery = {
+          terms: pattern.commonKeywords || ['leaked'],
+          siteRestriction: pattern.platformType,
+          maxResults: 20,
+          priority: 'MEDIUM'
+        }
+        
+        const patternResults = await this.intelligentSearchWithQuery(query)
+        results.push(...patternResults)
+        
+      } catch (error) {
+        console.warn('Erro na busca por padrão:', error)
+      }
+    }
+    
+    return this.removeDuplicates(results)
+  }
+
+  /**
+   * Construir query string a partir de SearchQuery
+   */
+  private buildQueryString(query: SearchQuery): string {
+    let queryString = query.terms.join(' ')
+    
+    // Adicionar exclusões
+    if (query.excludeTerms && query.excludeTerms.length > 0) {
+      const exclusions = query.excludeTerms.map(term => `-"${term}"`).join(' ')
+      queryString += ` ${exclusions}`
+    }
+    
+    // Adicionar restrição de site
+    if (query.siteRestriction) {
+      queryString += ` site:${query.siteRestriction}`
+    }
+    
+    return queryString
+  }
+
+  /**
+   * Gerar queries para descoberta de novos sites
+   */
+  generateDiscoveryQueries(brandName: string, keywords: string[]): SearchQuery[] {
+    const queries: SearchQuery[] = []
+    
+    // Queries principais
+    queries.push({
+      terms: [brandName, 'leaked'],
+      excludeTerms: ['official', 'store'],
+      maxResults: 50,
+      priority: 'HIGH'
+    })
+    
+    queries.push({
+      terms: [brandName, 'nude'],
+      excludeTerms: ['news', 'official'],
+      maxResults: 50, 
+      priority: 'HIGH'
+    })
+    
+    // Queries com keywords
+    for (const keyword of keywords) {
+      queries.push({
+        terms: [brandName, keyword],
+        maxResults: 30,
+        priority: 'MEDIUM'
+      })
+    }
+    
+    // Queries específicas para plataformas
+    const platforms = ['.to', '.cc', 'telegram', 'discord']
+    for (const platform of platforms) {
+      queries.push({
+        terms: [brandName],
+        siteRestriction: platform,
+        maxResults: 25,
+        priority: 'LOW'
+      })
+    }
+    
+    return queries
   }
 }
