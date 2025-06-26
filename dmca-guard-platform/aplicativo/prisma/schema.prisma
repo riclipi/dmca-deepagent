@@ -39,6 +39,11 @@ model User {
   referenceImages ReferenceImage[]
   dmcaScores      DmcaScore[]
   keywordReviews  KeywordReview[]
+  
+  // Multi-agent system relations
+  knownSites      KnownSite[]
+  agentActivities AgentActivity[]
+  scanSessions    ScanSession[]
 
   @@map("users")
 }
@@ -464,4 +469,237 @@ enum SubscriptionStatus {
   TRIAL
   PAST_DUE
   SUSPENDED
+}
+
+// Multi-agent system models
+model KnownSite {
+  id                String   @id @default(cuid())
+  baseUrl           String   @unique
+  domain            String   
+  category          SiteCategory
+  platform          String?  // "telegram", "discord", "forum", etc
+  
+  // Métricas de performance
+  totalViolations   Int      @default(0)
+  lastViolation     DateTime?
+  lastChecked       DateTime?
+  avgResponseTime   Int?     // em milliseconds
+  isActive          Boolean  @default(true)
+  riskScore         Int      @default(50) // 0-100
+  
+  // Metadados operacionais
+  robotsTxtUrl      String?
+  crawlDelay        Int      @default(1000)
+  lastCrawlSuccess  Boolean  @default(true)
+  blockedByRobots   Boolean  @default(false)
+  
+  // Relacionamentos
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  violationHistory  ViolationHistory[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([domain])
+  @@index([category])
+  @@index([riskScore, lastChecked])
+  @@index([userId, isActive])
+  @@map("known_sites")
+}
+
+model ViolationHistory {
+  id              String   @id @default(cuid())
+  knownSiteId     String
+  knownSite       KnownSite @relation(fields: [knownSiteId], references: [id])
+  
+  url             String
+  title           String?
+  description     String?
+  detectionMethod DetectionMethod
+  riskLevel       RiskLevel
+  aiConfidence    Float?   // 0-1 para análises Gemini
+  
+  // Status do takedown
+  takedownSent    Boolean  @default(false)
+  takedownDate    DateTime?
+  resolved        Boolean  @default(false)
+  resolvedDate    DateTime?
+  
+  detectedAt      DateTime @default(now())
+  
+  @@index([knownSiteId, detectedAt])
+  @@index([takedownSent, resolved])
+  @@map("violation_history")
+}
+
+model AgentActivity {
+  id              String   @id @default(cuid())
+  agentType       AgentType
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  
+  sessionId       String   // Para agrupar atividades relacionadas
+  status          AgentStatus
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  
+  // Métricas de performance
+  sitesScanned    Int      @default(0)
+  violationsFound Int      @default(0)
+  newSitesFound   Int      @default(0)
+  processingTime  Int?     // em seconds
+  
+  // Dados específicos do agente
+  metadata        Json?    // Dados flexíveis por tipo de agente
+  errorMessage    String?
+  
+  @@index([userId, sessionId])
+  @@index([agentType, status])
+  @@index([startedAt])
+  @@map("agent_activities")
+}
+
+enum SiteCategory {
+  FORUM
+  SOCIAL_MEDIA
+  FILE_SHARING
+  ADULT_CONTENT
+  MESSAGING
+  UNKNOWN
+}
+
+enum DetectionMethod {
+  KEYWORD_MATCH
+  IMAGE_ANALYSIS
+  CONTEXT_ANALYSIS
+  AI_CLASSIFICATION
+  MANUAL_REVIEW
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AgentType {
+  ORCHESTRATOR
+  KNOWN_SITES_SCANNER
+  DISCOVERY_SCANNER
+  CONTEXT_ANALYZER
+  DMCA_GENERATOR
+}
+
+enum AgentStatus {
+  IDLE
+  RUNNING
+  COMPLETED
+  ERROR
+  PAUSED
+}
+
+// Agent system tables
+model ScanSession {
+  id                  String    @id @default(cuid())
+  userId              String
+  brandProfileId      String
+  status              SessionStatus @default(IDLE)
+  totalSites          Int       @default(0)
+  sitesScanned        Int       @default(0)
+  violationsFound     Int       @default(0)
+  errorCount          Int       @default(0)
+  startedAt           DateTime  @default(now())
+  completedAt         DateTime?
+  estimatedCompletion DateTime?
+  currentSite         String?
+  lastError           String?
+  metadata            Json?
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  user                User      @relation(fields: [userId], references: [id])
+  
+  @@index([userId, status])
+  @@index([startedAt])
+  @@map("scan_sessions")
+}
+
+model ScanReport {
+  id                  String    @id @default(cuid())
+  sessionId           String    @unique
+  totalSites          Int
+  sitesScanned        Int
+  violationsFound     Int
+  errorCount          Int
+  duration            Int       // em ms
+  averageTimePerSite  Float
+  violationsByRisk    Json
+  topViolationSites   Json
+  errors              Json
+  generatedAt         DateTime  @default(now())
+  
+  @@map("scan_reports")
+}
+
+model SessionProgress {
+  id                  String    @id @default(cuid())
+  sessionId           String    @unique
+  sitesScanned        Int       @default(0)
+  violationsFound     Int       @default(0)
+  errorCount          Int       @default(0)
+  currentSite         String?
+  estimatedCompletion DateTime?
+  progress            Float     @default(0)
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  @@map("session_progress")
+}
+
+model AgentEvent {
+  id          String    @id @default(cuid())
+  type        String
+  sessionId   String
+  timestamp   DateTime  @default(now())
+  data        Json
+  
+  @@index([sessionId, timestamp])
+  @@map("agent_events")
+}
+
+model AgentMetric {
+  id          String    @id @default(cuid())
+  agentType   String
+  metricType  String
+  name        String
+  value       Float
+  unit        String
+  timestamp   DateTime  @default(now())
+  sessionId   String?
+  userId      String?
+  metadata    Json?
+  
+  @@index([name, timestamp])
+  @@index([agentType, timestamp])
+  @@index([sessionId])
+  @@map("agent_metrics")
+}
+
+model CacheEntry {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  type        String
+  data        Json
+  timestamp   DateTime  @default(now())
+  ttl         Int       // TTL em ms
+  tags        String[]
+  hits        Int       @default(0)
+  
+  @@index([type, timestamp])
+  @@index([tags])
+  @@map("cache_entries")
 }
