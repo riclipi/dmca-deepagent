@@ -152,8 +152,6 @@ export async function POST(request: NextRequest) {
         data: {
           userId: session.user.id,
           detectedContentId: validatedData.detectedContentId,
-          platform: validatedData.platform,
-          recipientEmail: validatedData.recipientEmail,
           subject: dmcaNotice.subject,
           message: validatedData.customMessage || dmcaNotice.body,
           status: 'PENDING'

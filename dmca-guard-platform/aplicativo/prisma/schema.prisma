@@ -218,15 +218,17 @@ model RemovalProof {
 }
 
 model Notification {
-  id        String    @id @default(cuid())
-  userId    String
-  title     String
-  message   String
-  type      String
-  isRead    Boolean   @default(false)
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String           @id @default(cuid())
+  userId            String
+  takedownRequestId String?
+  title             String
+  message           String
+  type              String
+  isRead            Boolean          @default(false)
+  readAt            DateTime?
+  createdAt         DateTime         @default(now())
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  takedownRequest   TakedownRequest? @relation(fields: [takedownRequestId], references: [id], onDelete: SetNull)
 
   @@map("notifications")
 }
@@ -371,6 +373,15 @@ enum TakedownStatus {
   DELISTED
   CONTENT_REMOVED
   IN_REVIEW
+}
+
+enum TakedownType {
+  DMCA
+  CEASE_AND_DESIST
+  COPYRIGHT_CLAIM
+  TRADEMARK_INFRINGEMENT
+  PRIVACY_VIOLATION
+  OTHER
 }
 
 enum ContentStatus {

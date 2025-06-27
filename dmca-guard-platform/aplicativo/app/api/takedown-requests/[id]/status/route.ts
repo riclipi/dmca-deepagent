@@ -5,10 +5,11 @@ const prisma = new PrismaClient()
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const resolvedParams = await params
+    const { id } = resolvedParams
     const body = await request.json()
     const { status, responseMessage, verificationUrl } = body
 
@@ -118,10 +119,11 @@ export async function PATCH(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const resolvedParams = await params
+    const { id } = resolvedParams
 
     const takedownRequest = await prisma.takedownRequest.findUnique({
       where: { id },
@@ -201,8 +203,8 @@ async function getStatusHistory(takedownId: string) {
   })
 
   return auditLogs.map(log => ({
-    status: log.details?.status,
+    status: (log.details as any)?.status,
     timestamp: log.timestamp,
-    notes: log.details?.notes
+    notes: (log.details as any)?.notes
   }))
 }

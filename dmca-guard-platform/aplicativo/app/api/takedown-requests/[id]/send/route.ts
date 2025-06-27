@@ -16,20 +16,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params;
     const takedown = await prisma.takedownRequest.findUnique({
       where: { id },
+      include: {
+        detectedContent: {
+          include: {
+            dmcaContactInfo: true
+          }
+        }
+      }
     });
 
     if (!takedown) {
       return NextResponse.json({ error: "TakedownRequest não encontrada" }, { status: 404 });
     }
 
-    if (!takedown.recipientEmail) {
-      return NextResponse.json({ error: "Destinatário não informado" }, { status: 400 });
+    const recipientEmail = takedown.detectedContent?.dmcaContactInfo?.email;
+    if (!recipientEmail) {
+      return NextResponse.json({ error: "Destinatário não informado ou não encontrado" }, { status: 400 });
     }
 
     // Envia o e-mail
     const result = await resend.emails.send({
       from: process.env.RESEND_SENDER_FROM_EMAIL,
-      to: takedown.recipientEmail,
+      to: recipientEmail,
       subject: takedown.subject || "Notificação DMCA",
       html: takedown.message || "<p>Segue sua notificação DMCA.</p>",
     });

@@ -11,8 +11,9 @@ const updateStatusSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -25,7 +26,7 @@ export async function PATCH(
     // Verificar se o conteúdo pertence ao usuário
     const detectedContent = await prisma.detectedContent.findFirst({
       where: {
-        id: params.id,
+        id: resolvedParams.id,
         userId: session.user.id
       }
     })
@@ -39,12 +40,11 @@ export async function PATCH(
 
     // Atualizar o status
     const updatedContent = await prisma.detectedContent.update({
-      where: { id: params.id },
+      where: { id: resolvedParams.id },
       data: {
         status,
         reviewedAt: new Date(),
-        reviewedBy: session.user.id,
-        notes: notes || detectedContent.notes // Manter notas existentes se não fornecidas
+        reviewedBy: session.user.id
       },
       include: {
         brandProfile: {

@@ -54,6 +54,7 @@ interface DashboardStats {
     monitoringSessions: number
     detectedContent: number
     takedownRequests: number
+    contentRemoved: number
     unreadNotifications: number
   }
   recent: {
@@ -83,6 +84,7 @@ interface DashboardStats {
     last30Days: {
       detectedContent: number
       takedowns: number
+      removed: number
     }
   }
 }

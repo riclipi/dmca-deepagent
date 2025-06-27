@@ -1,3 +1,4 @@
+import 'server-only'
 import { JSDOM } from 'jsdom'
 import fetch from 'node-fetch'
 

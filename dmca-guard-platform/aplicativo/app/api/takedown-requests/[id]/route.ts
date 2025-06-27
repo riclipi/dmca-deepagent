@@ -222,7 +222,7 @@ export async function DELETE(
       {
         takedownRequestId: takedownRequestId,
         detectedContentId: existingTakedownRequest.detectedContentId,
-        platform: existingTakedownRequest.platform,
+        platform: existingTakedownRequest.detectedContent?.platform,
         status: existingTakedownRequest.status,
         contentTitle: existingTakedownRequest.detectedContent?.title
       },
