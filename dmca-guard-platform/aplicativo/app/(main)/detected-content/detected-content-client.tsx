@@ -66,6 +66,7 @@ interface DetectedContent {
   url: string;
   platform: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  status?: 'DETECTED' | 'REVIEWED' | 'DMCA_SENT' | 'PENDING_REVIEW' | 'DELISTED' | 'REJECTED' | 'FALSE_POSITIVE' | 'IGNORED';
   createdAt: string;
   isConfirmed: boolean;
   description?: string;
@@ -561,11 +562,16 @@ export default function DetectedContentClient() {
                 <TableCell>
                   <StatusBadge
                     status={
+                      // Prioridade: Status do takedown se existe
                       content.takedownRequest
                         ? content.takedownRequest.status
-                        : content.isConfirmed
-                          ? 'CONFIRMED'
-                          : 'PENDING_REVIEW'
+                        // Senão, usar o novo campo status se disponível
+                        : content.status 
+                          ? content.status
+                          // Fallback para lógica legacy baseada em isConfirmed
+                          : content.isConfirmed
+                            ? 'CONFIRMED'
+                            : 'PENDING_REVIEW'
                     }
                   />
                 </TableCell>

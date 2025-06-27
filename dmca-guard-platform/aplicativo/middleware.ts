@@ -1,6 +1,7 @@
 
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
+import './lib/init/scheduler-init' // Inicializar scheduler
 
 const locales = ['en', 'pt']
 const defaultLocale = 'pt'

@@ -31,9 +31,17 @@ export async function GET(request: NextRequest) {
     //   where.isConfirmed = false
     // }
 
-    // Nova lógica correta:
+    // Lógica para filtrar por status
     if (status) {
-      where.status = status;
+      // Se o status é um dos novos ContentStatus, usar o campo status
+      const contentStatuses = ['DETECTED', 'REVIEWED', 'DMCA_SENT', 'PENDING_REVIEW', 'DELISTED', 'REJECTED', 'FALSE_POSITIVE', 'IGNORED']
+      if (contentStatuses.includes(status.toUpperCase())) {
+        where.status = status.toUpperCase()
+      } else if (status === 'confirmed') {
+        where.isConfirmed = true
+      } else if (status === 'pending') {
+        where.isConfirmed = false
+      }
     }
 
     if (platform) {

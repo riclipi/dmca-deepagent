@@ -266,33 +266,73 @@ export class ContextualAgent {
   }
 
   /**
-   * Análise de texto via Gemini
+   * Análise de texto via Gemini com verificação forense inteligente
    */
   private async analyzeTextContent(content: ExtractedContent): Promise<TextAnalysisResult> {
     const prompt = `
-    Analise este conteúdo web para detectar possíveis violações de copyright/marca:
+    Você é um especialista forense em análise de violações DMCA. Sua tarefa é determinar se o CONTEÚDO PRINCIPAL e EM DESTAQUE da página está diretamente associado à marca protegida.
     
+    ============ DADOS DA PÁGINA ============
     URL: ${content.url}
     Título: ${content.title}
     Descrição: ${content.description}
-    Conteúdo: ${content.bodyText.substring(0, 2000)}
+    Conteúdo Principal: ${content.bodyText.substring(0, 2000)}
     
-    Marca protegida: ${this.brandProfile!.name}
-    Variações conhecidas: ${this.brandProfile!.variations?.join(', ') || 'Nenhuma'}
-    Keywords protegidas: ${this.brandProfile!.keywords?.join(', ') || 'Nenhuma'}
+    ============ MARCA PROTEGIDA ============
+    Nome: ${this.brandProfile!.name}
+    Variações: ${this.brandProfile!.variations?.join(', ') || 'Nenhuma'}
+    Keywords: ${this.brandProfile!.keywords?.join(', ') || 'Nenhuma'}
     
-    Analise e avalie:
-    1. Probabilidade de violação (0-100)
-    2. Tipo de violação (copyright, marca, distribuição não autorizada, etc.)
-    3. Evidências específicas encontradas
-    4. Contexto da violação (vazamento, venda não autorizada, falsificação, etc.)
-    5. Nível de risco para a marca (baixo/médio/alto/crítico)
-    6. Ação recomendada (takedown imediato, monitoramento, ação legal, etc.)
-    7. Resumo executivo (2-3 frases)
-    8. Análise detalhada (1 parágrafo)
+    ============ INSTRUÇÕES FORENSES ============
     
-    Seja específico e forneça justificativas para suas conclusões.
-    Responda APENAS em formato JSON válido com as chaves: riskScore, violationType, evidences, recommendedAction, executiveSummary, detailedAnalysis, keyFindings, riskFactors.
+    ANÁLISE CONTEXTUAL INTELIGENTE:
+    1. DIFERENCIE o conteúdo principal de elementos secundários:
+       - Player de vídeo primário vs. thumbnails de recomendações
+       - Download principal vs. links relacionados na sidebar
+       - Título/descrição principal vs. comentários de usuários
+       - Tags principais vs. categorias genéricas
+    
+    2. AVALIE APENAS se a palavra-chave está relacionada ao CONTEÚDO PRIMÁRIO:
+       - Ignore menções em barras laterais de "vídeos relacionados"
+       - Ignore comentários de usuários ou seções de discussão
+       - Ignore tags genéricas no rodapé
+       - Foque no que um usuário veio especificamente buscar
+    
+    3. DETECTE FALSOS POSITIVOS:
+       - Se a palavra-chave aparece apenas em "Você também pode gostar"
+       - Se aparece apenas em listas de "Modelos similares"
+       - Se o conteúdo principal é sobre outra pessoa/tema
+       - Se é apenas uma menção passageira sem relevância central
+    
+    4. CONFIRME VIOLAÇÕES REAIS:
+       - Conteúdo principal claramente foca na marca protegida
+       - Título principal menciona a marca
+       - Player/download principal contém material da marca
+       - Descrição principal é sobre a marca protegida
+    
+    RESPONDA apenas se houver ALTA CONFIANÇA (80%+) de que a palavra-chave se refere ao conteúdo principal da página.
+    
+    Seja CONSERVADOR para evitar falsos positivos. É melhor classificar uma possível violação como "incerta" do que criar um falso positivo.
+    
+    ============ FORMATO DE RESPOSTA ============
+    Responda APENAS em formato JSON válido:
+    {
+      "riskScore": number (0-100),
+      "confidence": number (0-1),
+      "violationType": "COPYRIGHT_INFRINGEMENT|TRADEMARK_VIOLATION|UNAUTHORIZED_DISTRIBUTION|LEAKED_CONTENT|FALSE_POSITIVE|UNCERTAIN",
+      "evidences": ["evidência específica 1", "evidência específica 2"],
+      "recommendedAction": "IMMEDIATE_TAKEDOWN|SEND_CEASE_DESIST|MONITOR_CLOSELY|NEEDS_HUMAN_REVIEW|NO_ACTION_REQUIRED",
+      "executiveSummary": "resumo em 2-3 frases",
+      "detailedAnalysis": "análise detalhada em 1 parágrafo",
+      "keyFindings": ["descoberta chave 1", "descoberta chave 2"],
+      "riskFactors": ["fator de risco 1", "fator de risco 2"],
+      "contextualEvidence": {
+        "isPrimaryContent": boolean,
+        "contentLocation": "main|sidebar|footer|comments|recommendations",
+        "brandMentionContext": "title|description|main_content|secondary_elements",
+        "falsePositiveIndicators": ["indicador 1", "indicador 2"]
+      }
+    }
     `;
     
     return await this.geminiClient.analyzeText(prompt, {

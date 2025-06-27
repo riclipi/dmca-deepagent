@@ -128,7 +128,7 @@ model MonitoringSession {
 }
 
 model DetectedContent {
-  id                  String      @id @default(cuid())
+  id                  String        @id @default(cuid())
   userId              String
   brandProfileId      String
   monitoringSessionId String
@@ -139,14 +139,17 @@ model DetectedContent {
   platform            String
   thumbnailUrl        String?
   similarity          Float?
-  priority            Priority    @default(MEDIUM)
-  isConfirmed         Boolean     @default(false)
-  isProcessed         Boolean     @default(false)
-  detectedAt          DateTime    @default(now())
+  priority            Priority      @default(MEDIUM)
+  status              ContentStatus @default(DETECTED)
+  isConfirmed         Boolean       @default(false)
+  isProcessed         Boolean       @default(false)
+  detectedAt          DateTime      @default(now())
   confirmedAt         DateTime?
   processedAt         DateTime?
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
+  reviewedAt          DateTime?
+  reviewedBy          String?       // Quem fez a revisão (AI ou user ID)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
   // DMCA automation fields
   dmcaContactInfo     DmcaContactInfo?
@@ -165,27 +168,53 @@ model DetectedContent {
 }
 
 model TakedownRequest {
+  id              String              @id @default(cuid())
+  userId          String
+  detectedContent DetectedContent     @relation(fields: [detectedContentId], references: [id])
+  detectedContentId String            @unique
+  status          TakedownStatus      @default(PENDING)
+  priority        Int                 @default(5)
+  requestType     TakedownType        @default(DMCA)
+  subject         String
+  message         String              @db.Text
+  sentAt          DateTime?
+  acknowledgedAt  DateTime?
+  resolvedAt      DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  // Relacionamentos
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notifications   Notification[]
+  removalProofs   RemovalProof[]
+  
+  @@map("takedown_requests")
+}
+
+model RemovalProof {
   id                String          @id @default(cuid())
-  userId            String
-  detectedContentId String
-  status            TakedownStatus  @default(PENDING)
-  platform          String
-  recipientEmail    String
-  subject           String
-  message           String
-  sentAt            DateTime?
-  acknowledgedAt    DateTime?
-  resolvedAt        DateTime?
-  responseMessage   String?
-  attempts          Int             @default(0)
-  maxAttempts       Int             @default(3)
-  nextRetryAt       DateTime?
+  takedownRequestId String?
+  url               String
+  status            RemovalStatus
+  proofType         ProofType
+  verificationDate  DateTime        @default(now())
+  screenshotPath    String?
+  httpStatusCode    Int?
+  responseBody      String?         @db.Text
+  errorMessage      String?
+  retryCount        Int             @default(0)
+  metadata          Json            // RemovalMetadata as JSON
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
-  detectedContent   DetectedContent @relation(fields: [detectedContentId], references: [id], onDelete: Cascade)
-  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("takedown_requests")
+  
+  // Relacionamentos
+  takedownRequest   TakedownRequest? @relation(fields: [takedownRequestId], references: [id], onDelete: SetNull)
+  
+  @@index([url])
+  @@index([status])
+  @@index([verificationDate])
+  @@index([takedownRequestId])
+  @@map("removal_proofs")
 }
 
 model Notification {
@@ -339,6 +368,20 @@ enum TakedownStatus {
   REMOVED
   REJECTED
   FAILED
+  DELISTED
+  CONTENT_REMOVED
+  IN_REVIEW
+}
+
+enum ContentStatus {
+  DETECTED        // Conteúdo detectado, aguardando revisão
+  REVIEWED        // Conteúdo revisado (por IA ou usuário) e confirmado
+  DMCA_SENT       // Solicitação DMCA enviada
+  PENDING_REVIEW  // Aguardando resposta do provedor
+  DELISTED        // Conteúdo removido/delisted
+  REJECTED        // Solicitação rejeitada
+  FALSE_POSITIVE  // Falso positivo - não é infração
+  IGNORED         // Usuário escolheu ignorar
 }
 
 enum ContentType {
@@ -704,4 +747,26 @@ model CacheEntry {
   @@index([type, timestamp])
   @@index([tags])
   @@map("cache_entries")
+}
+
+enum RemovalStatus {
+  PENDING_VERIFICATION     // Aguardando primeira verificação
+  CONTENT_STILL_ONLINE     // Conteúdo ainda está online
+  CONTENT_REMOVED          // Conteúdo confirmadamente removido
+  SITE_UNREACHABLE         // Site não acessível (pode estar offline)
+  CONTENT_BLOCKED          // Conteúdo bloqueado/restrito geograficamente
+  URL_REDIRECTED           // URL redirecionada
+  VERIFICATION_FAILED      // Falha na verificação automática
+  REQUIRES_MANUAL_REVIEW   // Precisa de revisão manual
+}
+
+enum ProofType {
+  HTTP_404_NOT_FOUND
+  HTTP_410_GONE
+  HTTP_403_FORBIDDEN
+  CONTENT_REMOVED_MESSAGE
+  DMCA_TAKEDOWN_NOTICE
+  SITE_OFFLINE
+  MANUAL_VERIFICATION
+  SCREENSHOT_EVIDENCE
 }

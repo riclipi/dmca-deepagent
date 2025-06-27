@@ -369,7 +369,7 @@ export default function DashboardClient({ session }: DashboardClientProps) {
         </motion.div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <StatsCard
             title={t('brandProfiles.title')}
             value={stats?.overview.brandProfiles || 0}
@@ -383,22 +383,32 @@ export default function DashboardClient({ session }: DashboardClientProps) {
             description="Monitoramentos em execução"
           />
           <StatsCard
-            title={t('dashboard.detectedContent')}
+            title="Detectados"
             value={stats?.overview.detectedContent || 0}
             icon={AlertTriangle}
-            description="Total de infrações encontradas"
+            description="Conteúdos aguardando revisão"
             trend={{
               value: stats?.analytics.last30Days.detectedContent || 0,
               isPositive: false
             }}
           />
           <StatsCard
-            title={t('dashboard.takedownsSent')}
+            title="DMCA Enviados"
             value={stats?.overview.takedownRequests || 0}
             icon={Mail}
-            description="Solicitações de remoção"
+            description="Solicitações DMCA enviadas"
             trend={{
               value: stats?.analytics.last30Days.takedowns || 0,
+              isPositive: true
+            }}
+          />
+          <StatsCard
+            title="Removidos"
+            value={stats?.overview.contentRemoved || 0}
+            icon={CheckCircle}
+            description="Conteúdos removidos com sucesso"
+            trend={{
+              value: stats?.analytics.last30Days.removed || 0,
               isPositive: true
             }}
           />

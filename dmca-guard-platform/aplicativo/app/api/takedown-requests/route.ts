@@ -145,17 +145,32 @@ export async function POST(request: NextRequest) {
       originalUrl: detectedContent.brandProfile.officialUrls[0]
     })
 
-    // Criar solicitação de takedown
-    const takedownRequest = await prisma.takedownRequest.create({
-      data: {
-        userId: session.user.id,
-        detectedContentId: validatedData.detectedContentId,
-        platform: validatedData.platform,
-        recipientEmail: validatedData.recipientEmail,
-        subject: dmcaNotice.subject,
-        message: validatedData.customMessage || dmcaNotice.body,
-        status: 'PENDING'
-      }
+    // Criar solicitação de takedown e atualizar status do conteúdo em uma transação
+    const takedownRequest = await prisma.$transaction(async (tx) => {
+      // Criar o takedown request
+      const request = await tx.takedownRequest.create({
+        data: {
+          userId: session.user.id,
+          detectedContentId: validatedData.detectedContentId,
+          platform: validatedData.platform,
+          recipientEmail: validatedData.recipientEmail,
+          subject: dmcaNotice.subject,
+          message: validatedData.customMessage || dmcaNotice.body,
+          status: 'PENDING'
+        }
+      })
+
+      // Atualizar o status do conteúdo detectado para DMCA_SENT
+      await tx.detectedContent.update({
+        where: { id: validatedData.detectedContentId },
+        data: {
+          status: 'DMCA_SENT',
+          reviewedAt: new Date(),
+          reviewedBy: session.user.id
+        }
+      })
+
+      return request
     })
 
     // Chamar endpoint de envio de e-mail após criar a takedown request
