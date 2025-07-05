@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import { safeKeywordGenerator } from '@/lib/safe-keyword-generator'
 import { SessionStatus } from '@prisma/client'
+import { emitSessionProgress, emitToRoom } from '@/lib/socket-server'
 
 export class KeywordIntegrationService {
   /**
@@ -190,6 +191,9 @@ export class KeywordIntegrationService {
       processedKeywords?: number;
       resultsFound?: number;
       status?: SessionStatus;
+      sitesScanned?: number;
+      violationsFound?: number;
+      error?: string;
     }
   ): Promise<void> {
     const session = await prisma.monitoringSession.findUnique({
@@ -220,6 +224,18 @@ export class KeywordIntegrationService {
     await prisma.monitoringSession.update({
       where: { id: sessionId },
       data: updateData
+    })
+
+    // Emitir atualização via WebSocket
+    const progress = updateData.progress || 0
+    const currentKeyword = updates.currentKeyword || ''
+    
+    emitSessionProgress(sessionId, progress, currentKeyword, {
+      status: updates.status,
+      sitesScanned: updates.sitesScanned,
+      violationsFound: updates.violationsFound,
+      resultsFound: updates.resultsFound,
+      error: updates.error
     })
   }
 
@@ -329,5 +345,25 @@ export class KeywordIntegrationService {
       pendingReviews,
       activeSessions
     }
+  }
+
+  /**
+   * Emite notificação de nova violação detectada via WebSocket
+   */
+  static async notifyViolationDetected(
+    sessionId: string,
+    violation: {
+      url: string
+      violationType: string
+      confidence: number
+      evidence?: string
+    }
+  ) {
+    // Emitir via WebSocket
+    emitToRoom('/monitoring', `session:${sessionId}`, 'violation-detected', {
+      sessionId,
+      violation,
+      timestamp: new Date().toISOString()
+    })
   }
 }

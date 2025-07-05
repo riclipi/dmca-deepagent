@@ -2,10 +2,10 @@ import { KnownSite } from '@prisma/client'
 import { PageContent, ScrapingOptions, RobotsInfo, CacheEntry } from '../agents/types'
 import * as cheerio from 'cheerio'
 import { z } from 'zod'
+import { getAgentCache } from '../cache/agent-cache-manager'
 
 export class SmartScraper {
-  private robotsCache = new Map<string, RobotsInfo>()
-  private contentCache = new Map<string, CacheEntry>()
+  private agentCache = getAgentCache()
   private userAgent: string
   private respectRobots: boolean
   private maxConcurrency: number
@@ -29,9 +29,10 @@ export class SmartScraper {
     
     try {
       // Verificar cache primeiro
-      if (options.timeout > 0) {
-        const cached = await this.getCachedContent(url)
-        if (cached) return cached
+      const cached = await this.agentCache.getPageContent(url)
+      if (cached) {
+        console.log(`[Cache] Hit for URL: ${url}`)
+        return JSON.parse(cached) as PageContent
       }
 
       // Verificar robots.txt se necessário
@@ -64,7 +65,7 @@ export class SmartScraper {
         const content = this.parseHtmlContent(url, html, responseTime)
 
         // Cache do conteúdo
-        await this.cacheContent(url, content)
+        await this.agentCache.setPageContent(url, JSON.stringify(content), [`domain:${new URL(url).hostname}`])
 
         return content
 
@@ -91,21 +92,24 @@ export class SmartScraper {
     try {
       const urlObj = new URL(url)
       const robotsUrl = `${urlObj.protocol}//${urlObj.host}/robots.txt`
-      const cacheKey = `${urlObj.host}:${userAgent}`
+      const domain = urlObj.host
 
-      // Verificar cache
-      const cached = this.robotsCache.get(cacheKey)
-      if (cached && Date.now() - cached.lastChecked.getTime() < 24 * 60 * 60 * 1000) {
-        return cached.allowed
+      // Verificar cache persistente primeiro
+      const cachedRobots = await this.agentCache.getRobotsTxt(domain)
+      if (cachedRobots) {
+        const robotsInfo = this.parseRobotsTxt(cachedRobots, userAgent, urlObj.pathname)
+        return robotsInfo.allowed
       }
 
       // Buscar robots.txt
       const robotsContent = await this.fetchRobotsTxt(robotsUrl)
+      
+      // Armazenar no cache persistente
+      if (robotsContent) {
+        await this.agentCache.setRobotsTxt(domain, robotsContent)
+      }
+      
       const robotsInfo = this.parseRobotsTxt(robotsContent, userAgent, urlObj.pathname)
-
-      // Cache do resultado
-      this.robotsCache.set(cacheKey, robotsInfo)
-
       return robotsInfo.allowed
 
     } catch (error) {

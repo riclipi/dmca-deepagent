@@ -44,6 +44,9 @@ model User {
   knownSites      KnownSite[]
   agentActivities AgentActivity[]
   scanSessions    ScanSession[]
+  
+  // Anti-abuse relations
+  abuseScore      AbuseScore?
 
   @@map("users")
 }
@@ -84,6 +87,9 @@ model BrandProfile {
   monitoringSessions MonitoringSession[]
   referenceImages    ReferenceImage[]
   scanSessions       ScanSession[]
+  
+  // Anti-abuse relations
+  ownershipValidations OwnershipValidation[]
 
   @@map("brand_profiles")
 }
@@ -124,6 +130,9 @@ model MonitoringSession {
   brandProfile    BrandProfile      @relation(fields: [brandProfileId], references: [id], onDelete: Cascade)
   user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId, status])
+  @@index([brandProfileId, isActive])
+  @@index([lastScanAt, nextScanAt])
   @@map("monitoring_sessions")
 }
 
@@ -164,6 +173,10 @@ model DetectedContent {
   user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   takedownRequests  TakedownRequest[]
 
+  @@index([userId, status, createdAt])
+  @@index([brandProfileId, isConfirmed])
+  @@index([monitoringSessionId, detectedAt])
+  @@index([keywordSource, platform])
   @@map("detected_content")
 }
 
@@ -680,6 +693,8 @@ model ScanSession {
   
   @@index([userId, status])
   @@index([startedAt])
+  @@index([brandProfileId, startedAt])
+  @@index([completedAt])
   @@map("scan_sessions")
 }
 
@@ -749,14 +764,16 @@ model CacheEntry {
   id          String    @id @default(cuid())
   key         String    @unique
   type        String
-  data        Json
-  timestamp   DateTime  @default(now())
+  value       Json
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
   ttl         Int       // TTL em ms
   tags        String[]
   hits        Int       @default(0)
   
-  @@index([type, timestamp])
+  @@index([type, createdAt])
   @@index([tags])
+  @@index([expiresAt])
   @@map("cache_entries")
 }
 
@@ -780,4 +797,112 @@ enum ProofType {
   SITE_OFFLINE
   MANUAL_VERIFICATION
   SCREENSHOT_EVIDENCE
+}
+
+// Anti-Abuse System Models
+model AbuseScore {
+  id            String         @id @default(cuid())
+  userId        String         @unique
+  currentScore  Float          @default(0)
+  state         AbuseState     @default(CLEAN)
+  lastViolation DateTime?
+  violations    AbuseViolation[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([state])
+  @@index([currentScore])
+  @@index([userId, state])
+  @@map("abuse_scores")
+}
+
+model AbuseViolation {
+  id           String       @id @default(cuid())
+  userId       String
+  scoreId      String
+  type         ViolationType
+  severity     Float        // 0.1 to 1.0
+  description  String?
+  metadata     Json?
+  occurredAt   DateTime     @default(now())
+  
+  abuseScore   AbuseScore   @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, occurredAt])
+  @@index([type])
+  @@map("abuse_violations")
+}
+
+model OwnershipValidation {
+  id            String              @id @default(cuid())
+  userId        String
+  brandProfileId String
+  domain        String?
+  method        ValidationMethod
+  status        ValidationStatus
+  verificationToken String?
+  validatedAt   DateTime?
+  expiresAt     DateTime?
+  score         Float               @default(0) // 0 to 1
+  attempts      Int                 @default(0)
+  metadata      Json?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  
+  brandProfile  BrandProfile        @relation(fields: [brandProfileId], references: [id], onDelete: Cascade)
+  
+  @@unique([brandProfileId, method])
+  @@index([userId, status])
+  @@map("ownership_validations")
+}
+
+model UserActivity {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String
+  metadata    Json?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  
+  @@index([userId, action, createdAt])
+  @@map("user_activities")
+}
+
+enum AbuseState {
+  CLEAN
+  WARNING
+  HIGH_RISK
+  BLOCKED
+}
+
+enum ViolationType {
+  SPAM_KEYWORDS
+  EXCESSIVE_REQUESTS
+  SUSPICIOUS_PATTERNS
+  MULTIPLE_ACCOUNTS
+  COMPETITOR_MONITORING
+  FAKE_OWNERSHIP
+  API_ABUSE
+  SCRAPING
+}
+
+enum ValidationMethod {
+  DNS_TXT
+  META_TAG
+  FILE_UPLOAD
+  EMAIL_CONFIRMATION
+  SOCIAL_MEDIA
+  TRADEMARK_DB
+  MANUAL_REVIEW
+}
+
+enum ValidationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  EXPIRED
+  MANUAL_REVIEW_REQUIRED
 }

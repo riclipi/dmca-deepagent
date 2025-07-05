@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { KnownSitesAgent } from '@/lib/agents/KnownSitesAgent'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
+import { fairQueueManager } from '@/lib/services/security/fair-queue-manager'
 
 const prisma = new PrismaClient()
 
@@ -66,16 +67,42 @@ export async function POST(request: NextRequest) {
       }, { status: 409 })
     }
 
-    // Inicializar agente
-    const agent = new KnownSitesAgent(session.user.id, validatedData.options)
+    // Obter o plano do usuário
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { planType: true }
+    })
 
-    // Iniciar varredura em background
-    const sessionId = await agent.scanKnownSites(validatedData.brandProfileId)
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Usuário não encontrado' },
+        { status: 404 }
+      )
+    }
+
+    // Buscar todos os sites conhecidos para passar à fila
+    const knownSites = await prisma.knownSite.findMany({
+      where: { isActive: true },
+      select: { id: true }
+    })
+
+    // Enfileirar ou processar através do Fair Queue Manager
+    const queueResponse = await fairQueueManager.enqueueScan({
+      userId: session.user.id,
+      userPlan: user.planType,
+      siteIds: knownSites.map(site => site.id),
+      metadata: {
+        brandProfileId: validatedData.brandProfileId,
+        options: validatedData.options
+      }
+    })
 
     return NextResponse.json({
       success: true,
-      sessionId,
-      message: 'Varredura iniciada com sucesso',
+      ...queueResponse,
+      message: queueResponse.status === 'QUEUED' 
+        ? `Varredura enfileirada. Posição na fila: ${queueResponse.position}`
+        : 'Varredura iniciada com sucesso',
       estimatedDuration: '15-30 minutos',
       brandProfile: {
         id: brandProfile.id,

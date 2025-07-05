@@ -1,6 +1,11 @@
 
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+// import { rateLimitMiddleware } from '@/lib/middleware/rate-limit-advanced'
+import { simpleRateLimit, getRateLimitHeaders } from '@/lib/middleware/simple-rate-limit'
+import { signatureValidationMiddleware } from '@/lib/middleware/signature-validation'
+import { getToken } from 'next-auth/jwt'
 
 const locales = ['en', 'pt']
 const defaultLocale = 'pt'
@@ -20,7 +25,37 @@ function getLocale(req: any): string {
 }
 
 export default withAuth(
-  function middleware(req) {
+  async function middleware(req) {
+    // Apply rate limiting first for API routes
+    if (req.nextUrl.pathname.startsWith('/api/')) {
+      // Use simple rate limiter for now
+      const token = await getToken({ req: req as NextRequest })
+      const identifier = token?.sub || req.headers.get('x-forwarded-for') || 'unknown'
+      
+      const rateLimitResult = await simpleRateLimit(identifier, 100, 3600)
+      
+      if (!rateLimitResult.success) {
+        const response = NextResponse.json(
+          { error: 'Too Many Requests' },
+          { status: 429 }
+        )
+        
+        // Add rate limit headers
+        const headers = getRateLimitHeaders(rateLimitResult)
+        headers.forEach((value, key) => {
+          response.headers.set(key, value)
+        })
+        
+        return response
+      }
+      
+      // Apply signature validation for critical APIs
+      const signatureResponse = await signatureValidationMiddleware(req as NextRequest)
+      if (signatureResponse.status === 401) {
+        return signatureResponse
+      }
+    }
+
     const token = req.nextauth.token
     const isAuth = !!token
     
@@ -40,9 +75,10 @@ export default withAuth(
 
     const isAuthPage = pathnameWithoutLocale.startsWith('/auth')
     const isApiAuthRoute = pathname.startsWith('/api/auth')
-    const isPublicPage = ['/', '/pricing', '/about'].includes(pathnameWithoutLocale)
+    const isPublicApiRoute = pathname.startsWith('/api/health') || pathname.startsWith('/api/api-docs')
+    const isPublicPage = ['/', '/pricing', '/about', '/test-rate-limit'].includes(pathnameWithoutLocale)
 
-    if (isApiAuthRoute) {
+    if (isApiAuthRoute || isPublicApiRoute) {
       return null
     }
 
@@ -54,7 +90,7 @@ export default withAuth(
       return null
     }
 
-    if (!isAuth && !isPublicPage) {
+    if (!isAuth && !isPublicPage && !isPublicApiRoute) {
       let from = pathname
       if (req.nextUrl.search) {
         from += req.nextUrl.search
@@ -84,6 +120,6 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico).*)'
+    '/((?!_next/static|_next/image|favicon.ico).*)'
   ]
 }

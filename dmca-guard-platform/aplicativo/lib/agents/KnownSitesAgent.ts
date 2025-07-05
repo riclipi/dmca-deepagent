@@ -12,6 +12,15 @@ import { SmartScraper } from '../scraping/smart-scraper'
 import { ViolationDetector } from '../detection/violation-detector'
 import { SessionManager } from './session-manager'
 import { z } from 'zod'
+import { emitSessionProgress, emitToRoom } from '../socket-server'
+import { 
+  createSpan, 
+  addSpanAttributes, 
+  addSpanEvent,
+  scanCounter,
+  violationCounter,
+  scanDurationHistogram 
+} from '../monitoring/telemetry'
 
 const prisma = new PrismaClient()
 
@@ -231,6 +240,19 @@ export class KnownSitesAgent {
             url: violation.url,
             riskLevel: violation.riskLevel
           })
+
+          // Emitir via WebSocket
+          emitToRoom('/monitoring', `session:${this.session!.sessionId}`, 'violation-detected', {
+            sessionId: this.session!.sessionId,
+            violation: {
+              url: violation.url,
+              violationType: violation.violationType,
+              confidence: violation.confidence,
+              evidence: violation.evidence,
+              site: site.domain
+            },
+            timestamp: new Date().toISOString()
+          })
         }
 
       } catch (error) {
@@ -357,8 +379,20 @@ export class KnownSitesAgent {
     // Atualizar no banco
     await this.sessionManager.updateSession(this.session.sessionId, this.session)
     
-    // Emitir evento de progresso
-    await this.sessionManager.emitProgressUpdate(this.session.sessionId, this.session)
+    // Emitir evento de progresso via WebSocket
+    const progress = Math.round((this.session.sitesScanned / this.session.totalSites) * 100)
+    emitSessionProgress(
+      this.session.sessionId,
+      progress,
+      update.currentSite || '',
+      {
+        status: this.session.status,
+        sitesScanned: this.session.sitesScanned,
+        violationsFound: this.session.violationsFound,
+        totalSites: this.session.totalSites,
+        estimatedCompletion: this.session.estimatedCompletion
+      }
+    )
   }
 
   /**
