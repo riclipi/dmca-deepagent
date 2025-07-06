@@ -2,7 +2,7 @@
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { rateLimitMiddleware } from '@/lib/middleware/rate-limit-advanced'
+import { rateLimitMiddleware } from '@/lib/middleware/rate-limit-edge'
 import { simpleRateLimit, getRateLimitHeaders } from '@/lib/middleware/simple-rate-limit'
 import { signatureValidationMiddleware } from '@/lib/middleware/signature-validation'
 import { getToken } from 'next-auth/jwt'

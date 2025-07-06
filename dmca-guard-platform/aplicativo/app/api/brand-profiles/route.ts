@@ -6,11 +6,14 @@ import { brandProfileSchema } from '@/lib/validations'
 import { createAuditLog, getClientIP } from '@/lib/audit'
 import { canPerformAction, getPlanLimits } from '@/lib/plans'
 import { generateNameVariants } from '@/lib/name-generator'
+import { useAbuseProcessing } from '@/hooks/use-abuse-processing'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
+    // Process any abuse violations from middleware
+    await useAbuseProcessing()
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })

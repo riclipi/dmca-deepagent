@@ -167,6 +167,50 @@ class MockRedis {
       }
     }
   }
+
+  // Sorted set operations for analytics
+  private sortedSets: Map<string, Map<string, number>> = new Map()
+
+  async zincrby(key: string, increment: number, member: string): Promise<number> {
+    if (!this.sortedSets.has(key)) {
+      this.sortedSets.set(key, new Map())
+    }
+    
+    const sortedSet = this.sortedSets.get(key)!
+    const currentScore = sortedSet.get(member) || 0
+    const newScore = currentScore + increment
+    sortedSet.set(member, newScore)
+    
+    return newScore
+  }
+
+  async zrange(key: string, start: number, stop: number, options?: { withScores?: boolean }): Promise<any[]> {
+    const sortedSet = this.sortedSets.get(key)
+    if (!sortedSet) return []
+    
+    // Convert to array and sort by score
+    const entries = Array.from(sortedSet.entries())
+      .sort((a, b) => a[1] - b[1])
+      .slice(start, stop + 1)
+    
+    if (options?.withScores) {
+      return entries.flat()
+    }
+    
+    return entries.map(([member]) => member)
+  }
+
+  async zadd(key: string, score: number, member: string): Promise<number> {
+    if (!this.sortedSets.has(key)) {
+      this.sortedSets.set(key, new Map())
+    }
+    
+    const sortedSet = this.sortedSets.get(key)!
+    const existed = sortedSet.has(member)
+    sortedSet.set(member, score)
+    
+    return existed ? 0 : 1
+  }
 }
 
 // Create Redis instance based on environment
