@@ -67,7 +67,9 @@ export class CacheManager {
 
     // Iniciar warmup se habilitado
     if (this.warmupEnabled) {
-      this.warmupCache()
+      this.warmupCache().catch(error => {
+        console.error('[Cache] Warmup error:', error)
+      })
     }
 
     // Limpar cache expirado periodicamente
@@ -218,6 +220,12 @@ export class CacheManager {
    */
   private async warmupCache(): Promise<void> {
     if (!this.dbCacheEnabled) return
+    
+    // Skip warmup during build
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('[Cache] Skipping warmup during build')
+      return
+    }
     
     try {
       // Buscar entradas mais acessadas das últimas 24 horas

@@ -12,7 +12,7 @@ export class AgentCacheManager {
     this.cacheManager = CacheManager.getInstance({
       memoryLimit: options.memoryLimit || 50, // 50MB para agentes
       dbCacheEnabled: options.dbEnabled !== false,
-      warmupEnabled: true
+      warmupEnabled: process.env.NODE_ENV === 'production' && !process.env.NEXT_PHASE
     })
   }
 
