@@ -17,20 +17,20 @@ interface RateLimitConfig {
 // Configurações por plano
 const PLAN_CONFIGS: Record<string, Record<string, RateLimitConfig>> = {
   FREE: {
-    default: { type: 'sliding', requests: 100, window: '1h' },
-    api: { type: 'sliding', requests: 50, window: '1h' },
-    'api/monitoring-sessions': { type: 'fixed', requests: 10, window: '1h' },
-    'api/agents/known-sites/scan': { type: 'token-bucket', requests: 5, window: '24h' },
-    'api/takedown-requests': { type: 'sliding', requests: 10, window: '1h' },
-    'api/brand-profiles': { type: 'sliding', requests: 20, window: '1h' }
+    default: { type: 'sliding', requests: 1000, window: '1h' },
+    api: { type: 'sliding', requests: 500, window: '1h' },
+    'api/monitoring-sessions': { type: 'fixed', requests: 100, window: '1h' },
+    'api/agents/known-sites/scan': { type: 'token-bucket', requests: 50, window: '24h' },
+    'api/takedown-requests': { type: 'sliding', requests: 100, window: '1h' },
+    'api/brand-profiles': { type: 'sliding', requests: 200, window: '1h' }
   },
   BASIC: {
-    default: { type: 'sliding', requests: 500, window: '1h' },
-    api: { type: 'sliding', requests: 200, window: '1h' },
-    'api/monitoring-sessions': { type: 'fixed', requests: 50, window: '1h' },
-    'api/agents/known-sites/scan': { type: 'token-bucket', requests: 20, window: '12h' },
-    'api/takedown-requests': { type: 'sliding', requests: 50, window: '1h' },
-    'api/brand-profiles': { type: 'sliding', requests: 100, window: '1h' }
+    default: { type: 'sliding', requests: 5000, window: '1h' },
+    api: { type: 'sliding', requests: 2000, window: '1h' },
+    'api/monitoring-sessions': { type: 'fixed', requests: 500, window: '1h' },
+    'api/agents/known-sites/scan': { type: 'token-bucket', requests: 200, window: '12h' },
+    'api/takedown-requests': { type: 'sliding', requests: 500, window: '1h' },
+    'api/brand-profiles': { type: 'sliding', requests: 1000, window: '1h' }
   },
   PREMIUM: {
     default: { type: 'sliding', requests: 2000, window: '1h' },
@@ -107,6 +107,11 @@ function getRateLimiter(config: RateLimitConfig, redis: any): Ratelimit {
 
 export async function rateLimitMiddleware(request: NextRequest) {
   try {
+    // Skip rate limiting if disabled
+    if (process.env.DISABLE_RATE_LIMIT === 'true') {
+      return NextResponse.next()
+    }
+    
     const pathname = request.nextUrl.pathname
     
     // Ignorar rotas estáticas e de autenticação
