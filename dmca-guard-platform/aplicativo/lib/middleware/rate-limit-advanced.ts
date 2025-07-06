@@ -72,7 +72,7 @@ function getRateLimiter(config: RateLimitConfig, redis: any): Ratelimit {
     case 'sliding':
       limiter = new Ratelimit({
         redis,
-        limiter: Ratelimit.slidingWindow(config.requests, config.window),
+        limiter: Ratelimit.slidingWindow(config.requests, config.window as any),
         analytics: true,
         prefix: config.namespace ? `@dmca/${config.namespace}` : '@dmca/ratelimit'
       })
@@ -81,7 +81,7 @@ function getRateLimiter(config: RateLimitConfig, redis: any): Ratelimit {
     case 'fixed':
       limiter = new Ratelimit({
         redis,
-        limiter: Ratelimit.fixedWindow(config.requests, config.window),
+        limiter: Ratelimit.fixedWindow(config.requests, config.window as any),
         analytics: true,
         prefix: config.namespace ? `@dmca/${config.namespace}` : '@dmca/ratelimit'
       })
@@ -92,7 +92,7 @@ function getRateLimiter(config: RateLimitConfig, redis: any): Ratelimit {
         redis,
         limiter: Ratelimit.tokenBucket(
           config.requests,
-          config.window,
+          config.window as any,
           Math.max(1, Math.floor(config.requests / 10)) // 10% burst capacity
         ),
         analytics: true,
@@ -128,7 +128,7 @@ export async function rateLimitMiddleware(request: NextRequest) {
     const token = await getToken({ req: request })
     const userId = token?.sub
     const userPlan = (token?.planType as string) || 'FREE'
-    const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown'
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
     
     // Identifier composto: preferir userId, fallback para IP
     const identifier = userId || `anon:${ip}`

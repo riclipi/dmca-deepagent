@@ -2,7 +2,7 @@
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-// import { rateLimitMiddleware } from '@/lib/middleware/rate-limit-advanced'
+import { rateLimitMiddleware } from '@/lib/middleware/rate-limit-advanced'
 import { simpleRateLimit, getRateLimitHeaders } from '@/lib/middleware/simple-rate-limit'
 import { signatureValidationMiddleware } from '@/lib/middleware/signature-validation'
 import { getToken } from 'next-auth/jwt'
@@ -28,25 +28,35 @@ export default withAuth(
   async function middleware(req) {
     // Apply rate limiting first for API routes
     if (req.nextUrl.pathname.startsWith('/api/')) {
-      // Use simple rate limiter for now
-      const token = await getToken({ req: req as NextRequest })
-      const identifier = token?.sub || req.headers.get('x-forwarded-for') || 'unknown'
-      
-      const rateLimitResult = await simpleRateLimit(identifier, 100, 3600)
-      
-      if (!rateLimitResult.success) {
-        const response = NextResponse.json(
-          { error: 'Too Many Requests' },
-          { status: 429 }
-        )
+      try {
+        // Try to use advanced rate limiter first
+        const advancedRateLimitResponse = await rateLimitMiddleware(req as NextRequest)
+        if (advancedRateLimitResponse && advancedRateLimitResponse.status === 429) {
+          return advancedRateLimitResponse
+        }
+      } catch (error) {
+        // Fallback to simple rate limiter if advanced fails
+        console.warn('Advanced rate limiter failed, falling back to simple rate limiter:', error)
         
-        // Add rate limit headers
-        const headers = getRateLimitHeaders(rateLimitResult)
-        headers.forEach((value, key) => {
-          response.headers.set(key, value)
-        })
+        const token = await getToken({ req: req as NextRequest })
+        const identifier = token?.sub || req.headers.get('x-forwarded-for') || 'unknown'
         
-        return response
+        const rateLimitResult = await simpleRateLimit(identifier, 100, 3600)
+        
+        if (!rateLimitResult.success) {
+          const response = NextResponse.json(
+            { error: 'Too Many Requests' },
+            { status: 429 }
+          )
+          
+          // Add rate limit headers
+          const headers = getRateLimitHeaders(rateLimitResult)
+          headers.forEach((value, key) => {
+            response.headers.set(key, value)
+          })
+          
+          return response
+        }
       }
       
       // Apply signature validation for critical APIs

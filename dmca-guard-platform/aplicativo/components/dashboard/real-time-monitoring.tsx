@@ -53,7 +53,7 @@ export function RealTimeMonitoring({ sessionId, initialData }: RealTimeMonitorin
     socket.emit('join', room)
     
     // Escutar atualizações de progresso
-    socket.on('progress', (data) => {
+    socket.on('progress', (data: any) => {
       setProgress(data.progress || 0)
       setCurrentKeyword(data.currentKeyword || '')
       
@@ -72,7 +72,7 @@ export function RealTimeMonitoring({ sessionId, initialData }: RealTimeMonitorin
     })
     
     // Escutar violações detectadas
-    socket.on('violation-detected', (data) => {
+    socket.on('violation-detected', (data: any) => {
       setViolationsFound(prev => prev + 1)
       
       toast({

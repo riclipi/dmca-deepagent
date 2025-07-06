@@ -246,9 +246,9 @@ export class KnownSitesAgent {
             sessionId: this.session!.sessionId,
             violation: {
               url: violation.url,
-              violationType: violation.violationType,
+              riskLevel: violation.riskLevel,
               confidence: violation.confidence,
-              evidence: violation.evidence,
+              description: violation.description,
               site: site.domain
             },
             timestamp: new Date().toISOString()

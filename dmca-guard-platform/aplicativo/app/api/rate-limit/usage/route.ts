@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       
       // Get current count
       const count = await redis.get(key)
-      const used = count ? parseInt(count) : 0
+      const used = count && typeof count === 'string' ? parseInt(count) : 0
       
       // Get TTL for reset time
       const ttl = await redis.ttl(key)

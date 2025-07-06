@@ -1,13 +1,13 @@
-// app/api/brand-profiles/[brandProfileId]/ownership/route.ts
+// app/api/brand-profiles/[id]/ownership/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { ownershipValidationService } from '@/lib/services/security/ownership-validation.service'
-import prisma from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { brandProfileId: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -15,7 +15,7 @@ export async function GET(
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    const { brandProfileId } = params
+    const { id: brandProfileId } = await params
 
     // Verificar se o perfil pertence ao usuário
     const brandProfile = await prisma.brandProfile.findFirst({
@@ -55,7 +55,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { brandProfileId: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -63,7 +63,7 @@ export async function POST(
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    const { brandProfileId } = params
+    const { id: brandProfileId } = await params
 
     // Verificar se o perfil pertence ao usuário
     const brandProfile = await prisma.brandProfile.findFirst({

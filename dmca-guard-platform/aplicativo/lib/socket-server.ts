@@ -1,7 +1,7 @@
 import { Server as ServerIO } from 'socket.io'
 
 declare global {
-  var io: ServerIO | undefined
+  var dmcaIo: ServerIO | undefined
 }
 
 /**
@@ -9,8 +9,8 @@ declare global {
  * @returns A instância do servidor Socket.io ou undefined se não estiver disponível
  */
 export function getIO(): ServerIO | undefined {
-  if (typeof global !== 'undefined' && global.io) {
-    return global.io
+  if (typeof global !== 'undefined' && global.dmcaIo) {
+    return global.dmcaIo
   }
   return undefined
 }

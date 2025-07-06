@@ -1,5 +1,8 @@
-import { OpenAPIRegistry } from '@asteasolutions/zod-to-openapi'
+import { OpenAPIRegistry, OpenApiGeneratorV3, extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi'
 import { z } from 'zod'
+
+// Extend Zod with OpenAPI support
+extendZodWithOpenApi(z)
 
 // Create registry
 export const registry = new OpenAPIRegistry()
@@ -10,13 +13,13 @@ const ErrorResponseSchema = z.object({
   message: z.string(),
   errors: z.array(z.string()).optional(),
   meta: z.record(z.any()).optional()
-})
+}).openapi('ErrorResponse')
 
 const SuccessResponseSchema = z.object({
   success: z.literal(true),
   data: z.any(),
   meta: z.record(z.any()).optional()
-})
+}).openapi('SuccessResponse')
 
 const PaginatedResponseSchema = z.object({
   success: z.literal(true),
@@ -27,7 +30,7 @@ const PaginatedResponseSchema = z.object({
     total: z.number(),
     totalPages: z.number()
   })
-})
+}).openapi('PaginatedResponse')
 
 // Register common schemas
 registry.register('ErrorResponse', ErrorResponseSchema)
@@ -78,7 +81,7 @@ const HealthStatusSchema = z.object({
       })
     })
   })
-})
+}).openapi('HealthStatus')
 
 registry.register('HealthStatus', HealthStatusSchema)
 
@@ -124,7 +127,7 @@ const QueueStatusSchema = z.object({
     maxConcurrent: z.number(),
     priority: z.number()
   })
-})
+}).openapi('QueueStatus')
 
 registry.register('QueueStatus', QueueStatusSchema)
 
@@ -172,7 +175,7 @@ const BrandProfileSchema = z.object({
   isActive: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string()
-})
+}).openapi('BrandProfile')
 
 const CreateBrandProfileSchema = z.object({
   brandName: z.string().min(1).max(100),
@@ -180,7 +183,7 @@ const CreateBrandProfileSchema = z.object({
   officialUrls: z.array(z.string().url()),
   socialMedia: z.record(z.string()).optional(),
   keywords: z.array(z.string()).optional()
-})
+}).openapi('CreateBrandProfile')
 
 registry.register('BrandProfile', BrandProfileSchema)
 registry.register('CreateBrandProfile', CreateBrandProfileSchema)
@@ -253,7 +256,7 @@ const MonitoringSessionSchema = z.object({
   nextScanAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string()
-})
+}).openapi('MonitoringSession')
 
 registry.register('MonitoringSession', MonitoringSessionSchema)
 
@@ -262,7 +265,9 @@ const ScanRequestSchema = z.object({
   brandProfileId: z.string(),
   siteIds: z.array(z.string()).optional(),
   keywords: z.array(z.string()).optional()
-})
+}).openapi('ScanRequest')
+
+registry.register('ScanRequest', ScanRequestSchema)
 
 registry.registerPath({
   method: 'post',
@@ -408,8 +413,6 @@ registry.registerPath({
 })
 
 // Generate OpenAPI document
-import { OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi'
-
 const generator = new OpenApiGeneratorV3(registry.definitions)
 
 export const openApiDocument = generator.generateDocument({

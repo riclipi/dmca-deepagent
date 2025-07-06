@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import prisma from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { ownershipValidationService } from '@/lib/services/security/ownership-validation.service'
 import { antiFloodingService } from '@/lib/services/security/anti-flooding.service'

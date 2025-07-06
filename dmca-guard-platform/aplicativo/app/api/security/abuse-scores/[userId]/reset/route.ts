@@ -8,7 +8,7 @@ import { logActivity } from '@/lib/audit'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -22,7 +22,7 @@ export async function POST(
       return ApiResponse.forbidden('Super admin access required')
     }
 
-    const { userId } = params
+    const { userId } = await params
 
     // Find the abuse score
     const abuseScore = await prisma.abuseScore.findUnique({
@@ -44,16 +44,16 @@ export async function POST(
     })
 
     // Log the action
-    await logActivity({
-      userId: session.user.id,
-      action: 'RESET_ABUSE_SCORE',
-      resource: 'abuse_score',
-      details: {
+    await logActivity(
+      session.user.id,
+      'RESET_ABUSE_SCORE',
+      'abuse_score',
+      {
         targetUserId: userId,
         previousScore: abuseScore.currentScore,
         previousState: abuseScore.state
       }
-    })
+    )
 
     return ApiResponse.success({
       message: 'Abuse score reset successfully',

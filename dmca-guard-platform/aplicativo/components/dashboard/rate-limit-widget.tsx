@@ -202,7 +202,6 @@ export function RateLimitWidget() {
             <Progress 
               value={globalPercentage} 
               className="h-2"
-              indicatorClassName={getProgressColor(globalPercentage)}
             />
           </div>
 
@@ -246,7 +245,6 @@ export function RateLimitWidget() {
                     <Progress 
                       value={percentage} 
                       className="h-1.5"
-                      indicatorClassName={getProgressColor(percentage)}
                     />
                   </div>
                 )

@@ -195,7 +195,7 @@ export class AbuseMonitoringService {
     }, {} as Record<string, number>)
 
     for (const [type, count] of Object.entries(violationCounts)) {
-      if (count >= 10) {
+      if ((count as number) >= 10) {
         await this.recordViolation(
           userId,
           ViolationType.SUSPICIOUS_PATTERNS,
@@ -368,7 +368,7 @@ export class AbuseMonitoringService {
         await prisma.monitoringSession.updateMany({
           where: { 
             userId, 
-            status: { in: ['ACTIVE', 'IN_PROGRESS'] }
+            status: { in: ['RUNNING'] }
           },
           data: { status: 'PAUSED' }
         })
@@ -400,8 +400,7 @@ export class AbuseMonitoringService {
         userId,
         type: 'ABUSE_ALERT',
         title: this.getNotificationTitle(type),
-        message: this.getNotificationMessage(type, data),
-        metadata: data
+        message: this.getNotificationMessage(type, data)
       }
     })
 

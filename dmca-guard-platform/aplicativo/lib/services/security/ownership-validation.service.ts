@@ -1,5 +1,5 @@
 // lib/services/security/ownership-validation.service.ts
-import { BrandProfile, ValidationMethod, ValidationStatus } from '@prisma/client'
+import { BrandProfile, ValidationMethod, ValidationStatus, ViolationType } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { createHash } from 'crypto'
 import dns from 'dns/promises'
@@ -55,7 +55,7 @@ export class OwnershipValidationService {
       await this.flagForManualReview(userId, brandProfile, totalScore, validations)
       
       // Registrar violação de abuso
-      await this.recordAbuseViolation(userId, 'FAKE_OWNERSHIP', 0.7, {
+      await this.recordAbuseViolation(userId, ViolationType.FAKE_OWNERSHIP, 0.7, {
         brandProfileId: brandProfile.id,
         score: totalScore,
         validations
@@ -87,7 +87,7 @@ export class OwnershipValidationService {
         domain
       )
       
-      const verificationDomain = `${this.VERIFICATION_PREFIX}.${domain}`
+      const verificationDomain = `${OwnershipValidationService.VERIFICATION_PREFIX}.${domain}`
       
       try {
         // Resolver registros TXT
@@ -209,7 +209,7 @@ export class OwnershipValidationService {
     }
 
     try {
-      const socialProfiles = brandProfile.socialMedia as any
+      const socialProfiles = brandProfile.socialMedia as Record<string, string>
       let validatedCount = 0
       let totalProfiles = 0
       
@@ -275,7 +275,7 @@ export class OwnershipValidationService {
       update: {
         verificationToken,
         status: ValidationStatus.PENDING,
-        expiresAt: new Date(Date.now() + this.TOKEN_EXPIRY_HOURS * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + OwnershipValidationService.TOKEN_EXPIRY_HOURS * 60 * 60 * 1000),
         attempts: { increment: 1 }
       },
       create: {
@@ -288,7 +288,7 @@ export class OwnershipValidationService {
         method,
         status: ValidationStatus.PENDING,
         verificationToken,
-        expiresAt: new Date(Date.now() + this.TOKEN_EXPIRY_HOURS * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + OwnershipValidationService.TOKEN_EXPIRY_HOURS * 60 * 60 * 1000),
         score: 0
       }
     })
@@ -323,8 +323,8 @@ export class OwnershipValidationService {
         score,
         metadata: {
           reason: 'Low automatic validation score',
-          validations,
-          flaggedAt: new Date()
+          validations: JSON.parse(JSON.stringify(validations)),
+          flaggedAt: new Date().toISOString()
         }
       }
     })
@@ -335,7 +335,7 @@ export class OwnershipValidationService {
    */
   private async recordAbuseViolation(
     userId: string,
-    type: string,
+    type: ViolationType,
     severity: number,
     metadata: any
   ) {
@@ -351,7 +351,7 @@ export class OwnershipValidationService {
       data: {
         userId,
         scoreId: abuseScore.id,
-        type: type as any,
+        type,
         severity,
         description: 'Tentativa de validação de propriedade falhou',
         metadata
@@ -399,7 +399,7 @@ export class OwnershipValidationService {
     for (const validation of validations) {
       if (validation.method === ValidationMethod.DNS_TXT && validation.domain) {
         instructions.dns = {
-          record: `${this.VERIFICATION_PREFIX}.${validation.domain}`,
+          record: `${OwnershipValidationService.VERIFICATION_PREFIX}.${validation.domain}`,
           type: 'TXT',
           value: validation.verificationToken,
           status: validation.status,

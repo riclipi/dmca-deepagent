@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     
     // Rate limiting customizado para esta rota específica
     const { success, headers } = await checkRateLimit(request, {
-      identifier: session?.user?.id || request.ip || 'anonymous',
+      identifier: session?.user?.id || request.headers.get('x-forwarded-for') || 'anonymous',
       namespace: 'example-api',
       requests: 10, // 10 requisições
       window: '1m' // por minuto
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   
   // Rate limiting mais restritivo para POST
   const { success, headers } = await checkRateLimit(request, {
-    identifier: session?.user?.id || request.ip || 'anonymous',
+    identifier: session?.user?.id || request.headers.get('x-forwarded-for') || 'anonymous',
     namespace: 'example-api-post',
     requests: 5, // apenas 5 requisições
     window: '5m' // por 5 minutos

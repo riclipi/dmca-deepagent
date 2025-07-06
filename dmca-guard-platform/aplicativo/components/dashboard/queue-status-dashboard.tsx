@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { ProgressExtended } from '@/components/ui/progress-extended'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -330,10 +331,9 @@ export function QueueStatusDashboard() {
                 <p className="text-2xl font-bold">
                   {queueMetrics.errorRate.toFixed(1)}%
                 </p>
-                <Progress 
+                <ProgressExtended 
                   value={queueMetrics.errorRate} 
                   className="h-2"
-                  // @ts-ignore - custom color
                   indicatorClassName="bg-red-500"
                 />
               </div>

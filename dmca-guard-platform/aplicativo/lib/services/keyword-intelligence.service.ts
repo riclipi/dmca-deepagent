@@ -66,14 +66,7 @@ export class KeywordIntelligenceService {
       prisma.monitoringSession.update({
         where: { id: session.id },
         data: {
-          metadata: {
-            lastKeywordSync: new Date(),
-            syncedKeywords: {
-              safe: profile.safeKeywords.length,
-              moderate: profile.moderateKeywords.length,
-              dangerous: profile.dangerousKeywords.length
-            }
-          }
+          updatedAt: new Date()
         }
       })
     )
@@ -181,10 +174,8 @@ export class KeywordIntelligenceService {
     if (session.useProfileKeywords) {
       keywords.push(...session.brandProfile.safeKeywords)
       
-      // Moderate keywords apenas se configurado
-      if (session.metadata?.includeModerateKeywords) {
-        keywords.push(...session.brandProfile.moderateKeywords)
-      }
+      // Incluir moderate keywords por padrão (pode ser ajustado futuramente)
+      keywords.push(...session.brandProfile.moderateKeywords)
     }
 
     // Adicionar keywords customizadas
@@ -277,7 +268,8 @@ export class KeywordIntelligenceService {
     `
 
     try {
-      const response = await this.geminiService.analyzeContent(prompt)
+      const geminiResponse = await this.geminiService.generateContent(prompt)
+      const response = geminiResponse.text
       const analysis = JSON.parse(response)
 
       // Calcular estatísticas
@@ -452,7 +444,8 @@ export class KeywordIntelligenceService {
     `
 
     try {
-      const response = await this.geminiService.analyzeContent(prompt)
+      const geminiResponse = await this.geminiService.generateContent(prompt)
+      const response = geminiResponse.text
       const { suggestions } = JSON.parse(response)
       
       // Filtrar sugestões que já existem
@@ -525,8 +518,7 @@ export class KeywordIntelligenceService {
       select: {
         keywordSource: true,
         confidence: true,
-        isConfirmed: true,
-        violationType: true
+        isConfirmed: true
       }
     })
 

@@ -1,4 +1,4 @@
-import LRUCache from 'lru-cache'
+import { LRUCache } from 'lru-cache'
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
@@ -86,8 +86,8 @@ export class AgentCacheManager {
         await prisma.cacheEntry.upsert({
           where: { key: url },
           update: {
-            data: entry.data,
-            timestamp: entry.timestamp,
+            value: entry.data,
+            expiresAt: new Date(Date.now() + entry.ttl),
             ttl: entry.ttl,
             tags: entry.tags,
             hits: { increment: 0 }
@@ -95,8 +95,8 @@ export class AgentCacheManager {
           create: {
             key: url,
             type: 'page-content',
-            data: entry.data,
-            timestamp: entry.timestamp,
+            value: entry.data,
+            expiresAt: new Date(Date.now() + entry.ttl),
             ttl: entry.ttl,
             tags: entry.tags,
             hits: 0
@@ -123,8 +123,8 @@ export class AgentCacheManager {
           where: {
             key: url,
             type: 'page-content',
-            timestamp: {
-              gte: new Date(Date.now() - 60 * 60 * 1000) // 1 hora
+            expiresAt: {
+              gt: new Date() // Not expired
             }
           }
         })
@@ -133,8 +133,8 @@ export class AgentCacheManager {
           // Recarregar na memória
           const entry: CacheEntry = {
             key: dbEntry.key,
-            data: dbEntry.data,
-            timestamp: dbEntry.timestamp,
+            data: dbEntry.value,
+            timestamp: dbEntry.createdAt,
             ttl: dbEntry.ttl,
             hits: dbEntry.hits + 1,
             tags: dbEntry.tags
@@ -179,16 +179,16 @@ export class AgentCacheManager {
         await prisma.cacheEntry.upsert({
           where: { key },
           update: {
-            data: entry.data,
-            timestamp: entry.timestamp,
+            value: entry.data,
+            expiresAt: new Date(Date.now() + entry.ttl),
             ttl: entry.ttl,
             tags: entry.tags
           },
           create: {
             key,
             type: 'robots',
-            data: entry.data,
-            timestamp: entry.timestamp,
+            value: entry.data,
+            expiresAt: new Date(Date.now() + entry.ttl),
             ttl: entry.ttl,
             tags: entry.tags,
             hits: 0
@@ -215,8 +215,8 @@ export class AgentCacheManager {
           where: {
             key,
             type: 'robots',
-            timestamp: {
-              gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 horas
+            expiresAt: {
+              gt: new Date() // Not expired
             }
           }
         })
@@ -224,8 +224,8 @@ export class AgentCacheManager {
         if (dbEntry) {
           const entry: CacheEntry = {
             key: dbEntry.key,
-            data: dbEntry.data,
-            timestamp: dbEntry.timestamp,
+            data: dbEntry.value,
+            timestamp: dbEntry.createdAt,
             ttl: dbEntry.ttl,
             hits: dbEntry.hits + 1,
             tags: dbEntry.tags
@@ -263,16 +263,16 @@ export class AgentCacheManager {
         await prisma.cacheEntry.upsert({
           where: { key },
           update: {
-            data: entry.data,
-            timestamp: entry.timestamp,
+            value: entry.data,
+            expiresAt: new Date(Date.now() + entry.ttl),
             ttl: entry.ttl,
             tags: entry.tags
           },
           create: {
             key,
             type: 'site-metadata',
-            data: entry.data,
-            timestamp: entry.timestamp,
+            value: entry.data,
+            expiresAt: new Date(Date.now() + entry.ttl),
             ttl: entry.ttl,
             tags: entry.tags,
             hits: 0
@@ -299,8 +299,8 @@ export class AgentCacheManager {
           where: {
             key,
             type: 'site-metadata',
-            timestamp: {
-              gte: new Date(Date.now() - 6 * 60 * 60 * 1000) // 6 horas
+            expiresAt: {
+              gt: new Date() // Not expired
             }
           }
         })
@@ -308,8 +308,8 @@ export class AgentCacheManager {
         if (dbEntry) {
           const entry: CacheEntry = {
             key: dbEntry.key,
-            data: dbEntry.data,
-            timestamp: dbEntry.timestamp,
+            data: dbEntry.value,
+            timestamp: dbEntry.createdAt,
             ttl: dbEntry.ttl,
             hits: dbEntry.hits + 1,
             tags: dbEntry.tags
@@ -369,7 +369,7 @@ export class AgentCacheManager {
     // Limpar cache de memória
     for (const cache of [this.contentCache, this.robotsCache, this.siteMetadataCache, this.screenshotCache]) {
       for (const [key, entry] of cache.entries()) {
-        if (entry.tags.some(tag => tags.includes(tag))) {
+        if (entry.tags.some((tag: string) => tags.includes(tag))) {
           cache.delete(key)
           cleared++
         }
@@ -415,8 +415,8 @@ export class AgentCacheManager {
       try {
         const result = await prisma.cacheEntry.deleteMany({
           where: {
-            timestamp: {
-              lt: new Date(now - 24 * 60 * 60 * 1000) // Limpar entradas mais antigas que 24h
+            expiresAt: {
+              lt: new Date() // Already expired
             }
           }
         })

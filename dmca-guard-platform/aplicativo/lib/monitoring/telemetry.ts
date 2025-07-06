@@ -77,10 +77,6 @@ export function initializeTelemetry() {
             }
           },
         },
-        // Configure Prisma instrumentation if available
-        '@opentelemetry/instrumentation-prisma': {
-          enabled: true,
-        },
       }),
     ],
     spanProcessor: new BatchSpanProcessor(traceExporter),

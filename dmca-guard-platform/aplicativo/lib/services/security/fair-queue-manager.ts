@@ -38,7 +38,7 @@ export class FairQueueManager {
   /**
    * Enfileira ou inicia um scan, respeitando os limites do plano do usuário
    */
-  async enqueueScan(request: Omit<ScanRequest, 'id' | 'queuedAt'>): Promise<QueueResponse> {
+  async enqueueScan(request: Omit<ScanRequest, 'id' | 'queuedAt' | 'priority'>): Promise<QueueResponse> {
     const scanRequest: ScanRequest = {
       ...request,
       id: this.generateRequestId(),
@@ -172,21 +172,18 @@ export class FairQueueManager {
         data: {
           userId: request.userId,
           brandProfileId: request.metadata?.brandProfileId,
-          status: 'IN_PROGRESS',
-          metadata: {
-            siteIds: request.siteIds,
-            queuedAt: request.queuedAt,
-            startedAt: new Date()
-          }
+          status: 'RUNNING',
+          name: `Known Sites Scan - ${new Date().toISOString()}`,
+          targetPlatforms: request.siteIds || []
         }
       })
 
       // Import KnownSitesAgent dynamically to avoid circular dependencies
       const { KnownSitesAgent } = await import('@/lib/agents/KnownSitesAgent')
-      const agent = new KnownSitesAgent()
+      const agent = new KnownSitesAgent(request.userId)
       
       // Execute scan with the created session
-      await agent.scanKnownSites(request.metadata?.brandProfileId, session.id)
+      await agent.scanKnownSites(request.metadata?.brandProfileId || '')
 
       this.onScanComplete(request.userId, request.id)
 

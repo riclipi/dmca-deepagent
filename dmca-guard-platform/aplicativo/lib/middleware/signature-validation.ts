@@ -24,7 +24,7 @@ export async function signatureValidationMiddleware(request: NextRequest) {
       const text = await clonedRequest.text()
       body = text ? JSON.parse(text) : undefined
     } catch (error) {
-      return ApiResponse.badRequest('Invalid request body')
+      return ApiResponse.error('Invalid request body')
     }
   }
 

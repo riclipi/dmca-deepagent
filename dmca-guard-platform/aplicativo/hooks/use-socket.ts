@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { io, Socket } from 'socket.io-client'
+import socketIOClient from 'socket.io-client'
+const io = socketIOClient
+type Socket = typeof socketIOClient.Socket
 
 export const useSocket = (namespace: string) => {
   const [socket, setSocket] = useState<Socket | null>(null)
@@ -12,14 +14,14 @@ export const useSocket = (namespace: string) => {
     if (typeof window === 'undefined') return
 
     // Conecta ao servidor de sockets, especificando o path e o namespace
-    const socketInstance: Socket = io({
+    const socketInstance: Socket = io(namespace, {
       path: '/api/socket/io',
       transports: ['websocket', 'polling'],
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-    }).of(namespace)
+    })
 
     socketInstance.on('connect', () => {
       console.log(`[useSocket] Conectado ao namespace: ${namespace}`)
@@ -31,7 +33,7 @@ export const useSocket = (namespace: string) => {
       setIsConnected(false)
     })
 
-    socketInstance.on('connect_error', (error) => {
+    socketInstance.on('connect_error', (error: Error) => {
       console.error(`[useSocket] Erro de conexão:`, error.message)
     })
 

@@ -374,62 +374,30 @@ export class SmartScraper {
    * Cache de conteúdo
    */
   async cacheContent(url: string, content: PageContent): Promise<void> {
-    const ttl = 60 * 60 * 1000 // 1 hora
-    
-    const entry: CacheEntry = {
-      key: url,
-      data: content,
-      timestamp: new Date(),
-      ttl,
-      hits: 0
-    }
-
-    this.contentCache.set(url, entry)
-
-    // Limpeza automática do cache (manter apenas últimas 1000 entradas)
-    if (this.contentCache.size > 1000) {
-      const oldestKey = Array.from(this.contentCache.keys())[0]
-      this.contentCache.delete(oldestKey)
-    }
+    await this.agentCache.setPageContent(url, JSON.stringify(content), [])
   }
 
   /**
    * Obter conteúdo do cache
    */
   async getCachedContent(url: string): Promise<PageContent | null> {
-    const entry = this.contentCache.get(url)
-    
-    if (!entry) return null
-
-    // Verificar se expirou
-    if (Date.now() - entry.timestamp.getTime() > entry.ttl) {
-      this.contentCache.delete(url)
-      return null
+    const cached = await this.agentCache.getPageContent(url)
+    if (cached) {
+      return JSON.parse(cached) as PageContent
     }
-
-    // Incrementar contador de hits
-    entry.hits++
-    
-    return entry.data as PageContent
+    return null
   }
 
   /**
    * Obter estatísticas do scraper
    */
   getStats(): {
-    robotsCacheSize: number
-    contentCacheSize: number
     activeRequests: number
-    totalCacheHits: number
+    cacheStats: any
   } {
-    const totalHits = Array.from(this.contentCache.values())
-      .reduce((total, entry) => total + entry.hits, 0)
-
     return {
-      robotsCacheSize: this.robotsCache.size,
-      contentCacheSize: this.contentCache.size,
       activeRequests: this.activeRequests.size,
-      totalCacheHits: totalHits
+      cacheStats: this.agentCache.getStats()
     }
   }
 
@@ -437,8 +405,8 @@ export class SmartScraper {
    * Limpar caches
    */
   clearCaches(): void {
-    this.robotsCache.clear()
-    this.contentCache.clear()
+    // Cache clearing is handled by AgentCacheManager
+    console.log('Cache clearing delegated to AgentCacheManager')
   }
 
   /**

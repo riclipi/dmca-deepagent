@@ -47,37 +47,22 @@ export class CacheManager {
     // Configurar caches LRU
     this.contentCache = new LRUCache<string, CacheEntry>({
       max: 1000,
-      ttl: this.TTL.content,
-      sizeCalculation: (value) => JSON.stringify(value).length,
-      maxSize: memoryLimit * 1024 * 1024 * 0.4, // 40% do limite
-      dispose: (value, key) => this.onEvict(key, value)
+      ttl: this.TTL.content
     })
 
     this.robotsCache = new LRUCache<string, CacheEntry>({
       max: 500,
-      ttl: this.TTL.robots,
-      sizeCalculation: (value) => JSON.stringify(value).length,
-      maxSize: memoryLimit * 1024 * 1024 * 0.1 // 10% do limite
+      ttl: this.TTL.robots
     })
 
     this.metadataCache = new LRUCache<string, CacheEntry>({
       max: 1000,
-      ttl: this.TTL.metadata,
-      sizeCalculation: (value) => JSON.stringify(value).length,
-      maxSize: memoryLimit * 1024 * 1024 * 0.2 // 20% do limite
+      ttl: this.TTL.metadata
     })
 
     this.screenshotCache = new LRUCache<string, CacheEntry>({
       max: 100,
-      ttl: this.TTL.screenshot,
-      sizeCalculation: (value) => {
-        // Screenshots são base64, calcular tamanho real
-        if (typeof value.value === 'string' && value.value.startsWith('data:image')) {
-          return value.value.length * 0.75 // Base64 overhead
-        }
-        return JSON.stringify(value).length
-      },
-      maxSize: memoryLimit * 1024 * 1024 * 0.3 // 30% do limite
+      ttl: this.TTL.screenshot
     })
 
     // Iniciar warmup se habilitado
@@ -107,11 +92,12 @@ export class CacheManager {
     
     if (!entry && this.dbCacheEnabled) {
       // Tentar obter do banco de dados
-      entry = await this.getFromDatabase(key, type)
+      const dbEntry = await this.getFromDatabase(key, type)
       
-      if (entry && !this.isExpired(entry)) {
+      if (dbEntry && !this.isExpired(dbEntry)) {
         // Restaurar para memória
-        cache.set(key, entry)
+        cache.set(key, dbEntry)
+        entry = dbEntry
       }
     }
     
@@ -432,7 +418,14 @@ export class CacheManager {
     let invalidated = 0
     
     // Percorrer todos os caches e remover entradas com as tags
-    for (const [type, cache] of this.caches.entries()) {
+    const caches = [
+      this.contentCache,
+      this.robotsCache, 
+      this.metadataCache,
+      this.screenshotCache
+    ]
+    
+    for (const cache of caches) {
       const keysToRemove: string[] = []
       
       // Identificar chaves para remover
@@ -477,4 +470,4 @@ export class CacheManager {
 }
 
 // Export singleton instance
-export const cacheManager = new CacheManager()
+export const cacheManager = CacheManager.getInstance()

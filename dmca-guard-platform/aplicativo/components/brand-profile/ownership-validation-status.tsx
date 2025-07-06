@@ -116,11 +116,11 @@ export function OwnershipValidationStatus({ brandProfileId }: Props) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'VERIFIED':
-        return <Badge variant="success">Verificado</Badge>
+        return <Badge variant="default">Verificado</Badge>
       case 'FAILED':
         return <Badge variant="destructive">Falhou</Badge>
       case 'PENDING':
-        return <Badge variant="warning">Pendente</Badge>
+        return <Badge variant="secondary">Pendente</Badge>
       case 'MANUAL_REVIEW_REQUIRED':
         return <Badge variant="secondary">Revisão Manual</Badge>
       default:

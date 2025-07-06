@@ -38,7 +38,7 @@ app.prepare().then(() => {
   })
 
   // Salvar instância global do io
-  global.io = io
+  global.dmcaIo = io
 
   // Namespace para monitoramento
   const monitoringNamespace = io.of('/monitoring')

@@ -1,11 +1,11 @@
-// app/api/brand-profiles/[brandProfileId]/keywords/route.ts
+// app/api/brand-profiles/[id]/keywords/route.ts
 import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { ApiResponse } from '@/lib/api-response'
 import { keywordIntelligenceService, KeywordIntelligenceService } from '@/lib/services/keyword-intelligence.service'
 import { antiFloodingService } from '@/lib/services/security/anti-flooding.service'
-import prisma from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
 // Schema de validação
@@ -19,7 +19,7 @@ const analyzeKeywordsSchema = z.object({
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { brandProfileId: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -27,7 +27,7 @@ export async function GET(
       return ApiResponse.unauthorized()
     }
 
-    const { brandProfileId } = params
+    const { id: brandProfileId } = await params
 
     // Verificar se o perfil pertence ao usuário
     const brandProfile = await prisma.brandProfile.findFirst({
@@ -67,7 +67,7 @@ export async function GET(
         safe: brandProfile.safeKeywords,
         moderate: brandProfile.moderateKeywords,
         dangerous: brandProfile.dangerousKeywords,
-        statistics: brandProfile.keywordConfig?.analysis || null
+        statistics: (brandProfile.keywordConfig as any)?.analysis || null
       }
     }
 
@@ -96,7 +96,7 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { brandProfileId: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -104,7 +104,7 @@ export async function POST(
       return ApiResponse.unauthorized()
     }
 
-    const { brandProfileId } = params
+    const { id: brandProfileId } = await params
 
     // Verificar se o perfil pertence ao usuário
     const brandProfile = await prisma.brandProfile.findFirst({
@@ -197,7 +197,7 @@ export async function POST(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { brandProfileId: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -205,7 +205,7 @@ export async function PUT(
       return ApiResponse.unauthorized()
     }
 
-    const { brandProfileId } = params
+    const { id: brandProfileId } = await params
 
     // Verificar se o perfil pertence ao usuário
     const brandProfile = await prisma.brandProfile.findFirst({
@@ -229,7 +229,11 @@ export async function PUT(
 
     // Gerar sugestões
     const suggestions = await keywordIntelligenceService.generateKeywordSuggestions(
-      brandProfile,
+      {
+        ...brandProfile,
+        description: brandProfile.description || undefined,
+        socialMedia: brandProfile.socialMedia || undefined
+      },
       brandProfile.keywords
     )
 

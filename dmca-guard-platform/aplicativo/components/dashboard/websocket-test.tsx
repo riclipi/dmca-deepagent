@@ -16,11 +16,11 @@ export function WebSocketTest() {
     if (!socket) return
 
     // Escutar eventos de teste
-    socket.on('test-message', (data) => {
+    socket.on('test-message', (data: any) => {
       setMessages(prev => [...prev, { type: 'received', data, timestamp: new Date() }])
     })
 
-    socket.on('progress', (data) => {
+    socket.on('progress', (data: any) => {
       setMessages(prev => [...prev, { type: 'progress', data, timestamp: new Date() }])
     })
 

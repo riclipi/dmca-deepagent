@@ -127,16 +127,19 @@ async function checkWebSocket(): Promise<ServiceHealth> {
 
 async function checkQueue(): Promise<ServiceHealth> {
   try {
-    const queueStats = fairQueueManager.getQueueStats()
-    const isHealthy = queueStats.totalQueued < 1000 // Arbitrary threshold
+    const queueStats = await fairQueueManager.getQueueStats()
+    const totalQueued = queueStats.pending + queueStats.processing
+    const isHealthy = totalQueued < 1000 // Arbitrary threshold
     
     return {
       status: isHealthy ? 'up' : 'degraded',
       details: {
-        globalQueue: queueStats.globalQueue,
-        totalQueued: queueStats.totalQueued,
-        totalProcessing: queueStats.totalProcessing,
-        queuesByPlan: queueStats.queuesByPlan
+        pending: queueStats.pending,
+        processing: queueStats.processing,
+        completed: queueStats.completed,
+        failed: queueStats.failed,
+        cancelled: queueStats.cancelled,
+        totalQueued
       }
     }
   } catch (error) {

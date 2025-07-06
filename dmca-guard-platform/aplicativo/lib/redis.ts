@@ -95,20 +95,49 @@ class MockRedis {
   }
 
   // Additional methods required by Upstash Ratelimit
-  async eval(...args: any[]): Promise<any> {
-    // Simple mock for eval - used by ratelimit
+  async eval(script: string, keys: string[], args: string[]): Promise<any> {
+    // Enhanced mock for eval - simulate sliding window logic
+    if (script.includes('sliding window') || script.includes('rate limit')) {
+      const key = keys[0]
+      const limit = parseInt(args[0])
+      const window = parseInt(args[1])
+      const now = Date.now()
+      
+      // Get current count
+      const count = await this.get(`${key}:count`) || '0'
+      const windowStart = await this.get(`${key}:window`)
+      
+      if (!windowStart || now - parseInt(windowStart) > window * 1000) {
+        // New window
+        await this.set(`${key}:count`, '1', window)
+        await this.set(`${key}:window`, now.toString(), window)
+        return [1, limit - 1, now + window * 1000]
+      }
+      
+      const newCount = parseInt(count) + 1
+      if (newCount > limit) {
+        return [0, 0, parseInt(windowStart) + window * 1000]
+      }
+      
+      await this.set(`${key}:count`, newCount.toString())
+      return [1, limit - newCount, parseInt(windowStart) + window * 1000]
+    }
+    
     return null
   }
 
-  async evalsha(...args: any[]): Promise<any> {
-    // Simple mock for evalsha - used by ratelimit
-    return null
+  async evalsha(sha: string, keys: string[], args: string[]): Promise<any> {
+    // Delegate to eval for mock
+    return this.eval('sliding window rate limit', keys, args)
   }
 
   async script(...args: any[]): Promise<any> {
-    // Simple mock for script commands
+    // Enhanced mock for script commands
     if (args[0] === 'load') {
       return 'mock-script-sha'
+    }
+    if (args[0] === 'exists') {
+      return [1] // Always return script exists
     }
     return null
   }
@@ -193,7 +222,7 @@ export async function slidingWindowRateLimit(
   
   // Get all timestamps in the current window
   const timestamps = await redis.get(key)
-  const timestampList = timestamps ? JSON.parse(timestamps) : []
+  const timestampList = timestamps ? JSON.parse(timestamps as string) : []
   
   // Filter out expired timestamps
   const validTimestamps = timestampList.filter((ts: number) => ts > windowStart)

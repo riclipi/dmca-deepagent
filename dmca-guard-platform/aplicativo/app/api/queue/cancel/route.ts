@@ -1,7 +1,7 @@
 // app/api/queue/cancel/route.ts
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 import { fairQueueManager } from '@/lib/services/security/fair-queue-manager'
 
 export async function POST(request: Request) {

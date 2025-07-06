@@ -156,8 +156,8 @@ export function QueueStatusWidget() {
                       <Loader2 className="h-4 w-4 animate-spin" />
                     )}
                     <Badge variant={
-                      queue.status === 'COMPLETED' ? 'success' :
-                      queue.status === 'PROCESSING' ? 'default' :
+                      queue.status === 'COMPLETED' ? 'default' :
+                      queue.status === 'PROCESSING' ? 'secondary' :
                       queue.status === 'CANCELLED' ? 'destructive' :
                       'secondary'
                     }>

@@ -8,7 +8,7 @@ import { logActivity } from '@/lib/audit'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -22,7 +22,7 @@ export async function POST(
       return ApiResponse.forbidden('Super admin access required')
     }
 
-    const { userId } = params
+    const { userId } = await params
 
     // Check if user exists
     const user = await prisma.user.findUnique({
@@ -59,16 +59,16 @@ export async function POST(
     })
 
     // Log the action
-    await logActivity({
-      userId: session.user.id,
-      action: 'BLOCK_USER',
-      resource: 'user',
-      details: {
+    await logActivity(
+      session.user.id,
+      'BLOCK_USER',
+      'user',
+      {
         targetUserId: userId,
         reason: 'Manual block by admin',
         previousStatus: user.status
       }
-    })
+    )
 
     return ApiResponse.success({
       message: 'User blocked successfully',

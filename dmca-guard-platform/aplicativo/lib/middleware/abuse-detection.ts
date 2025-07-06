@@ -107,7 +107,7 @@ export async function abuseDetectionMiddleware(request: NextRequest) {
  * Trata requisições anônimas
  */
 async function handleAnonymousRequest(request: NextRequest) {
-  const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown'
+  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
   const key = `anon:${ip}`
 
   // Rate limiting mais restritivo para anônimos

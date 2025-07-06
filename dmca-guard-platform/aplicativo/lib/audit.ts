@@ -41,3 +41,6 @@ export function getClientIP(request: Request): string {
   
   return 'unknown'
 }
+
+// Alias for backward compatibility
+export const logActivity = createAuditLog

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 
 interface QueueMetrics {
   timestamp: string
-  queueStats: ReturnType<typeof fairQueueManager.getQueueStats>
+  queueStats: Awaited<ReturnType<typeof fairQueueManager.getQueueStats>>
   avgWaitTime: number
   completionRate: number
   errorRate: number
@@ -19,7 +19,7 @@ export async function runQueueMetricsJob(): Promise<QueueMetrics> {
   
   try {
     // Get current queue stats
-    const queueStats = fairQueueManager.getQueueStats()
+    const queueStats = await fairQueueManager.getQueueStats()
     
     // Calculate average wait time from recent sessions
     const recentSessions = await prisma.scanSession.findMany({
@@ -114,7 +114,7 @@ export async function runQueueMetricsJob(): Promise<QueueMetrics> {
           name: 'avg_wait_time',
           value: metrics.avgWaitTime,
           unit: 'ms',
-          metadata: metrics
+          metadata: metrics as any
         },
         {
           agentType: 'QUEUE_MANAGER',
@@ -122,7 +122,7 @@ export async function runQueueMetricsJob(): Promise<QueueMetrics> {
           name: 'completion_rate',
           value: metrics.completionRate,
           unit: 'percentage',
-          metadata: metrics
+          metadata: metrics as any
         },
         {
           agentType: 'QUEUE_MANAGER',
@@ -130,15 +130,15 @@ export async function runQueueMetricsJob(): Promise<QueueMetrics> {
           name: 'error_rate',
           value: metrics.errorRate,
           unit: 'percentage',
-          metadata: metrics
+          metadata: metrics as any
         },
         {
           agentType: 'QUEUE_MANAGER',
           metricType: 'queue',
           name: 'total_queued',
-          value: metrics.queueStats.totalQueued,
+          value: metrics.queueStats.pending + metrics.queueStats.processing,
           unit: 'count',
-          metadata: metrics
+          metadata: metrics as any
         }
       ]
     })
@@ -147,7 +147,7 @@ export async function runQueueMetricsJob(): Promise<QueueMetrics> {
       avgWaitTime: `${metrics.avgWaitTime}ms`,
       completionRate: `${metrics.completionRate}%`,
       errorRate: `${metrics.errorRate}%`,
-      totalQueued: metrics.queueStats.totalQueued
+      totalQueued: metrics.queueStats.pending + metrics.queueStats.processing
     })
     
     return metrics

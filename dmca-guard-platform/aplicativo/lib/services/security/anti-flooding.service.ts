@@ -2,6 +2,7 @@
 import { PlanType, ViolationType } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { GeminiAIService } from '@/lib/services/gemini-ai'
+import { notificationService, NotificationType } from '../notification.service'
 
 interface KeywordQualityAnalysis {
   spamProbability: number
@@ -200,7 +201,8 @@ export class AntiFloodingService {
         }
       `
 
-      const response = await this.geminiService.analyzeContent(prompt)
+      const geminiResponse = await this.geminiService.generateContent(prompt)
+      const response = geminiResponse.text
       return JSON.parse(response)
     } catch (error) {
       console.error('[Anti-Flooding] Error analyzing keyword quality:', error)
@@ -341,8 +343,8 @@ export class AntiFloodingService {
         description: `Tentativa de criar ${keywords.length} keywords identificadas como spam`,
         metadata: {
           keywords: keywords.slice(0, 10), // Primeiras 10 para referência
-          analysis
-        }
+          analysis: analysis as any
+        } as any
       }
     })
 
@@ -450,11 +452,41 @@ export class AntiFloodingService {
     console.log(`[Anti-Flooding] User ${userId} has been BLOCKED due to abuse`)
     
     // Notificar administradores
-    // TODO: Implementar sistema de notificação
+    await notificationService.create({
+      userId,
+      type: NotificationType.ABUSE_WARNING,
+      title: 'Account Blocked Due to Abuse',
+      message: 'Your account has been temporarily blocked due to suspicious activity. Please contact support.',
+      metadata: {
+        priority: 'HIGH',
+        reason: 'Abuse score exceeded threshold',
+        blockedAt: new Date()
+      }
+    })
+    
+    // Notificar administradores (usuários com plano SUPER_USER)
+    const admins = await prisma.user.findMany({
+      where: { planType: 'SUPER_USER' },
+      select: { id: true }
+    })
+    
+    for (const admin of admins) {
+      await notificationService.create({
+        userId: admin.id,
+        type: NotificationType.SYSTEM_ANNOUNCEMENT,
+        title: 'User Blocked for Abuse',
+        message: `User ${userId} has been blocked due to abuse violations`,
+        metadata: {
+          priority: 'HIGH',
+          blockedUserId: userId,
+          blockedAt: new Date()
+        }
+      })
+    }
     
     // Pausar todas as sessões ativas
     await prisma.monitoringSession.updateMany({
-      where: { userId, status: 'ACTIVE' },
+      where: { userId, status: 'RUNNING' },
       data: { status: 'PAUSED' }
     })
   }
