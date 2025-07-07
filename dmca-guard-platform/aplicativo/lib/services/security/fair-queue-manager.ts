@@ -13,6 +13,12 @@ interface ScanRequest {
   metadata?: any
 }
 
+interface ProcessingMetrics {
+  averageTime: number
+  totalScans: number
+  lastUpdated: Date
+}
+
 interface QueueResponse {
   status: 'QUEUED' | 'PROCESSING'
   position?: number
@@ -34,6 +40,10 @@ export class FairQueueManager {
   private static activeScans = new Map<string, number>()
   private static globalQueue: ScanRequest[] = []
   private static isSchedulerRunning = false
+  
+  // Métricas de processamento por tipo de plano
+  private static processingMetrics = new Map<PlanType, ProcessingMetrics>()
+  private static readonly METRICS_WINDOW_SIZE = 50 // Últimos 50 scans
 
   /**
    * Enfileira ou inicia um scan, respeitando os limites do plano do usuário
@@ -72,7 +82,7 @@ export class FairQueueManager {
   /**
    * Adiciona scan à fila
    */
-  private addToQueue(request: ScanRequest): QueueResponse {
+  private async addToQueue(request: ScanRequest): Promise<QueueResponse> {
     // Adicionar à fila do usuário
     const userQueue = FairQueueManager.userQueues.get(request.userId) || []
     userQueue.push(request)
@@ -88,7 +98,7 @@ export class FairQueueManager {
     }
 
     const position = this.calculateQueuePosition(request)
-    const estimatedStartTime = this.estimateStartTime(request, position)
+    const estimatedStartTime = await this.estimateStartTime(request, position)
 
     console.log(`[Queue] Scan enqueued for user ${request.userId}. Position: ${position}`)
 
@@ -144,12 +154,41 @@ export class FairQueueManager {
   }
 
   /**
-   * Estima tempo de início
+   * Estima tempo de início baseado em histórico real
    */
-  private estimateStartTime(request: ScanRequest, position: number): Date {
-    // Estimativa: 2 minutos por scan na frente
-    const estimatedMinutes = position * 2
-    return new Date(Date.now() + estimatedMinutes * 60000)
+  private async estimateStartTime(request: ScanRequest, position: number): Promise<Date> {
+    // Buscar métricas do plano
+    const metrics = await this.getProcessingMetrics(request.userPlan)
+    
+    // Se não houver histórico, usar estimativa conservadora
+    const baseTimePerScan = metrics.averageTime || 120000 // 2 minutos default
+    
+    // Ajustar baseado no número de sites
+    const siteFactor = Math.max(1, request.siteIds.length / 10)
+    const adjustedTime = baseTimePerScan * siteFactor
+    
+    // Considerar scans na frente com planos diferentes
+    let estimatedMs = 0
+    let scansBefore = 0
+    
+    for (const queued of FairQueueManager.globalQueue) {
+      if (queued.id === request.id) break
+      
+      if (queued.priority >= request.priority || 
+          (queued.priority === request.priority && queued.queuedAt < request.queuedAt)) {
+        const queuedMetrics = await this.getProcessingMetrics(queued.userPlan)
+        const queuedTime = queuedMetrics.averageTime || 120000
+        estimatedMs += queuedTime * Math.max(1, queued.siteIds.length / 10)
+        scansBefore++
+      }
+    }
+    
+    // Se não há scans na frente, usar tempo médio do plano
+    if (scansBefore === 0) {
+      estimatedMs = adjustedTime
+    }
+    
+    return new Date(Date.now() + estimatedMs)
   }
 
   /**
@@ -157,6 +196,7 @@ export class FairQueueManager {
    */
   private async processScan(request: ScanRequest) {
     console.log(`[Queue] Processing scan for user ${request.userId}...`)
+    const startTime = Date.now()
     
     try {
       // Emit WebSocket event
@@ -174,7 +214,8 @@ export class FairQueueManager {
           brandProfileId: request.metadata?.brandProfileId,
           status: 'RUNNING',
           name: `Known Sites Scan - ${new Date().toISOString()}`,
-          targetPlatforms: request.siteIds || []
+          targetPlatforms: request.siteIds || [],
+          startedAt: new Date()
         }
       })
 
@@ -185,10 +226,28 @@ export class FairQueueManager {
       // Execute scan with the created session
       await agent.scanKnownSites(request.metadata?.brandProfileId || '')
 
+      // Atualizar métricas de processamento
+      const processingTime = Date.now() - startTime
+      await this.updateProcessingMetrics(request.userPlan, processingTime)
+      
+      // Atualizar sessão com tempo de processamento
+      await prisma.monitoringSession.update({
+        where: { id: session.id },
+        data: {
+          completedAt: new Date(),
+          processingTime
+        }
+      })
+
       this.onScanComplete(request.userId, request.id)
 
     } catch (error) {
       console.error(`[Queue] Error processing scan:`, error)
+      
+      // Ainda atualizar métricas mesmo em caso de erro
+      const processingTime = Date.now() - startTime
+      await this.updateProcessingMetrics(request.userPlan, processingTime)
+      
       this.onScanComplete(request.userId, request.id)
     }
   }
@@ -437,6 +496,95 @@ export class FairQueueManager {
     })
 
     return result
+  }
+
+  /**
+   * Obtém métricas de processamento para um plano
+   */
+  private async getProcessingMetrics(plan: PlanType): Promise<ProcessingMetrics> {
+    // Buscar da memória primeiro
+    const cached = FairQueueManager.processingMetrics.get(plan)
+    if (cached && Date.now() - cached.lastUpdated.getTime() < 300000) { // Cache de 5 minutos
+      return cached
+    }
+
+    // Buscar do banco de dados
+    const recentSessions = await prisma.monitoringSession.findMany({
+      where: {
+        user: {
+          planType: plan
+        },
+        processingTime: {
+          not: null
+        },
+        completedAt: {
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Últimos 7 dias
+        }
+      },
+      orderBy: {
+        completedAt: 'desc'
+      },
+      take: FairQueueManager.METRICS_WINDOW_SIZE,
+      select: {
+        processingTime: true
+      }
+    })
+
+    if (recentSessions.length === 0) {
+      // Valores padrão por plano
+      const defaults: Record<PlanType, number> = {
+        FREE: 180000,      // 3 minutos
+        BASIC: 150000,     // 2.5 minutos
+        PREMIUM: 120000,   // 2 minutos
+        ENTERPRISE: 90000, // 1.5 minutos
+        SUPER_USER: 60000  // 1 minuto
+      }
+
+      const metrics: ProcessingMetrics = {
+        averageTime: defaults[plan],
+        totalScans: 0,
+        lastUpdated: new Date()
+      }
+
+      FairQueueManager.processingMetrics.set(plan, metrics)
+      return metrics
+    }
+
+    // Calcular média
+    const totalTime = recentSessions.reduce((sum, s) => sum + (s.processingTime || 0), 0)
+    const averageTime = Math.round(totalTime / recentSessions.length)
+
+    const metrics: ProcessingMetrics = {
+      averageTime,
+      totalScans: recentSessions.length,
+      lastUpdated: new Date()
+    }
+
+    FairQueueManager.processingMetrics.set(plan, metrics)
+    return metrics
+  }
+
+  /**
+   * Atualiza métricas de processamento
+   */
+  private async updateProcessingMetrics(plan: PlanType, processingTime: number) {
+    const current = await this.getProcessingMetrics(plan)
+    
+    // Calcular nova média móvel
+    const weight = Math.min(current.totalScans, FairQueueManager.METRICS_WINDOW_SIZE - 1)
+    const newAverage = Math.round(
+      (current.averageTime * weight + processingTime) / (weight + 1)
+    )
+
+    const updated: ProcessingMetrics = {
+      averageTime: newAverage,
+      totalScans: current.totalScans + 1,
+      lastUpdated: new Date()
+    }
+
+    FairQueueManager.processingMetrics.set(plan, updated)
+    
+    console.log(`[Queue] Updated metrics for ${plan}: avg=${newAverage}ms, total=${updated.totalScans}`)
   }
 }
 

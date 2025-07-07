@@ -33,10 +33,16 @@ const config: Config = {
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
+          500: '#8B5CF6',
+          600: '#7C3AED',
+          700: '#6D28D9',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
+          500: '#EC4899',
+          600: '#DB2777',
+          700: '#BE185D',
         },
         muted: {
           DEFAULT: 'hsl(var(--muted))',
@@ -45,6 +51,11 @@ const config: Config = {
         accent: {
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--accent-foreground))',
+          blue: {
+            500: '#3B82F6',
+            600: '#2563EB',
+            700: '#1D4ED8',
+          }
         },
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
@@ -70,10 +81,50 @@ const config: Config = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
+        'gradient': {
+          '0%, 100%': {
+            'background-size': '400% 400%',
+            'background-position': '0% 50%'
+          },
+          '50%': {
+            'background-size': '400% 400%',
+            'background-position': '100% 50%'
+          },
+        },
+        'pulse-glow': {
+          '0%, 100%': {
+            opacity: '1',
+            transform: 'scale(1)',
+          },
+          '50%': {
+            opacity: '0.8',
+            transform: 'scale(1.05)',
+          },
+        },
+        'shimmer': {
+          '0%': {
+            'background-position': '-200% 0',
+          },
+          '100%': {
+            'background-position': '200% 0',
+          },
+        },
+        'float': {
+          '0%, 100%': {
+            transform: 'translateY(0)',
+          },
+          '50%': {
+            transform: 'translateY(-10px)',
+          },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'gradient': 'gradient 15s ease infinite',
+        'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
+        'shimmer': 'shimmer 2s ease-in-out infinite',
+        'float': 'float 3s ease-in-out infinite',
       },
     },
   },
