@@ -17,7 +17,17 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "db:seed-test": "node scripts/seed-test-content.js"
+    "db:seed-test": "node scripts/seed-test-content.js",
+    "test:setup": "node scripts/generate-secrets.js && echo 'Configure .env.test with your test IDs'",
+    "test:agents": "NODE_ENV=test node test-agents.js",
+    "test:seed-content": "NODE_ENV=test node scripts/seed-test-content.js",
+    "test:create-takedown": "NODE_ENV=test node scripts/create-test-takedown.js",
+    "test:create-admin": "NODE_ENV=test node find-or-create-admin.js",
+    "test:promote-user": "NODE_ENV=test node promote-user-to-admin.js",
+    "test:delete-sessions": "NODE_ENV=test node delete-sessions.js",
+    "validate:production": "NODE_ENV=production node -e \"import('./lib/config/startup-validator.js').then(m => m.runStartupValidation())\"",
+    "security:check": "grep -r 'password\\|secret\\|key\\|token' --include='*.ts' --include='*.tsx' --include='*.js' --exclude-dir='node_modules' --exclude-dir='.next' | grep -v '.env.example'",
+    "build:production": "npm run validate:production && npm run build"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.3.4",

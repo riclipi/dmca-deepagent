@@ -15,7 +15,9 @@ import {
   Target,
   Globe,
   TrendingUp,
-  RefreshCw
+  RefreshCw,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useSocket } from '@/hooks/use-socket';
 
 interface BrandProfile {
   id: string;
@@ -81,6 +84,7 @@ export default function RealSearchMonitor({
   const [lastResults, setLastResults] = useState<SearchResults | null>(null);
   
   const { toast } = useToast();
+  const { socket, isConnected } = useSocket('/monitoring');
 
   // Carregar sessões de monitoramento
   useEffect(() => {
@@ -89,53 +93,61 @@ export default function RealSearchMonitor({
     }
   }, [selectedProfile]);
 
-  // Monitor de progresso em tempo real
+  // WebSocket para progresso em tempo real
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (isSearching && selectedSession) {
-      interval = setInterval(async () => {
-        try {
-          const response = await fetch(`/api/scan/real-search?sessionId=${selectedSession}`);
-          if (response.ok) {
-            const data = await response.json();
-            console.log('📊 Status da busca:', data); // Log para debug
-            setSearchProgress(data.progress || 0);
-            setCurrentKeyword(data.currentKeyword || '');
-            
-            if (data.status === 'COMPLETED' || data.status === 'ERROR') {
-              setIsSearching(false);
-              if (data.status === 'COMPLETED') {
-                toast({
-                  title: "🎉 Busca Concluída!",
-                  description: `Encontrados ${data.resultsFound || 0} novos vazamentos potenciais`,
-                });
-                
-                // Mostrar link para ver resultados
-                setTimeout(() => {
-                  toast({
-                    title: "📋 Ver Resultados",
-                    description: "Clique aqui para ver os resultados detectados",
-                    action: (
-                      <button onClick={() => window.open('/detected-content', '_blank')}>
-                        Ver Resultados
-                      </button>
-                    )
-                  });
-                }, 1000);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Erro monitorando progresso:', error);
+    if (!socket || !isConnected || !selectedSession || !isSearching) return;
+
+    const room = `session:${selectedSession}`;
+    socket.emit('join', room);
+
+    // Ouvir eventos de progresso
+    const handleProgress = (data: any) => {
+      console.log('📊 Progresso via WebSocket:', data);
+      setSearchProgress(data.progress || 0);
+      setCurrentKeyword(data.currentKeyword || '');
+      
+      if (data.status === 'COMPLETED' || data.status === 'ERROR') {
+        setIsSearching(false);
+        if (data.status === 'COMPLETED') {
+          toast({
+            title: "🎉 Busca Concluída!",
+            description: `Encontrados ${data.resultsFound || 0} novos vazamentos potenciais`,
+          });
+          
+          // Mostrar link para ver resultados
+          setTimeout(() => {
+            toast({
+              title: "📋 Ver Resultados",
+              description: "Clique aqui para ver os resultados detectados",
+              action: (
+                <button onClick={() => window.open('/detected-content', '_blank')}>
+                  Ver Resultados
+                </button>
+              )
+            });
+          }, 1000);
         }
-      }, 1500); // Mais frequente para melhor UX
-    }
+      }
+    };
+
+    // Ouvir eventos de violação detectada
+    const handleViolationDetected = (data: any) => {
+      console.log('⚠️ Violação detectada:', data);
+      toast({
+        title: "⚠️ Nova Violação Detectada",
+        description: `${data.violation.url} - Confiança: ${data.violation.confidence}%`,
+      });
+    };
+
+    socket.on('progress', handleProgress);
+    socket.on('violation-detected', handleViolationDetected);
 
     return () => {
-      if (interval) clearInterval(interval);
+      socket.off('progress', handleProgress);
+      socket.off('violation-detected', handleViolationDetected);
+      socket.emit('leave', room);
     };
-  }, [isSearching, selectedSession]);
+  }, [socket, isConnected, selectedSession, isSearching, toast]);
 
   const fetchMonitoringSessions = async () => {
     try {
@@ -239,9 +251,22 @@ export default function RealSearchMonitor({
       {/* Controles de Busca */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Zap className="h-5 w-5 mr-2 text-yellow-500" />
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-yellow-500" />
             Busca Real de Vazamentos
+            <Badge variant={isConnected ? "default" : "secondary"} className="text-xs">
+              {isConnected ? (
+                <>
+                  <Wifi className="h-3 w-3 mr-1" />
+                  Live
+                </>
+              ) : (
+                <>
+                  <WifiOff className="h-3 w-3 mr-1" />
+                  Offline
+                </>
+              )}
+            </Badge>
           </CardTitle>
           <CardDescription>
             Execute buscas reais usando múltiplas fontes para encontrar conteúdo vazado

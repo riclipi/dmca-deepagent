@@ -6,6 +6,7 @@ import { rateLimitMiddleware } from '@/lib/middleware/rate-limit-edge'
 import { simpleRateLimit, getRateLimitHeaders } from '@/lib/middleware/simple-rate-limit'
 import { signatureValidationMiddleware } from '@/lib/middleware/signature-validation'
 import { getToken } from 'next-auth/jwt'
+import { isBlockedInProduction, productionGuardResponse } from '@/lib/config/production-guard'
 
 const locales = ['en', 'pt']
 const defaultLocale = 'pt'
@@ -26,6 +27,11 @@ function getLocale(req: any): string {
 
 export default withAuth(
   async function middleware(req) {
+    // Block test/development routes in production
+    if (isBlockedInProduction(req.nextUrl.pathname)) {
+      return productionGuardResponse();
+    }
+    
     // Apply rate limiting first for API routes
     if (req.nextUrl.pathname.startsWith('/api/')) {
       try {

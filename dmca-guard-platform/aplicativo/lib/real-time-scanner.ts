@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
 import { dmcaContactDetector } from './dmca-contact-detector'
 import { prisma } from './prisma'
+import { emitToRoom } from './socket-server'
 
 export interface ScanProgress {
   scanId: string
@@ -452,6 +453,15 @@ class RealTimeScanner extends EventEmitter {
       scan.phase = phase
       scan.currentActivity = activity
       scan.elapsedMinutes = Math.floor((Date.now() - scan.startedAt.getTime()) / 60000)
+      
+      // Emit WebSocket event for scan progress
+      emitToRoom('/monitoring', `scan:${scanId}`, 'scan-progress', {
+        scanId,
+        progress,
+        phase,
+        currentActivity: activity,
+        elapsedMinutes: scan.elapsedMinutes
+      })
     }
   }
 
@@ -479,6 +489,12 @@ class RealTimeScanner extends EventEmitter {
     }
     
     this.scanActivities.set(scanId, activities)
+    
+    // Emit WebSocket event for new activity
+    emitToRoom('/monitoring', `scan:${scanId}`, 'scan-activity', {
+      scanId,
+      activity
+    })
   }
 
   private emitUpdate(scanId: string) {
@@ -491,6 +507,20 @@ class RealTimeScanner extends EventEmitter {
     }
     
     this.emit('scanUpdate', update)
+    
+    // Emit WebSocket events for different update types
+    const scan = this.activeScans.get(scanId)
+    if (scan) {
+      emitToRoom('/monitoring', `scan:${scanId}`, 'scan-methods', {
+        scanId,
+        methods: this.scanMethods.get(scanId)
+      })
+      
+      emitToRoom('/monitoring', `scan:${scanId}`, 'scan-insights', {
+        scanId,
+        insights: this.scanInsights.get(scanId)
+      })
+    }
   }
 
   private async saveScanResults(scanId: string) {

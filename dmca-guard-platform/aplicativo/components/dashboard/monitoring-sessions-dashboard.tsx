@@ -23,9 +23,12 @@ import {
   Target,
   RefreshCw,
   Settings,
-  Eye
+  Eye,
+  Wifi,
+  WifiOff
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useSocket } from '@/hooks/use-socket'
 
 interface MonitoringSessionStatus {
   id: string
@@ -316,23 +319,88 @@ export function MonitoringSessionsDashboard() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   
   const { toast } = useToast()
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const { socket, isConnected } = useSocket('/monitoring')
 
   useEffect(() => {
+    // Load initial data
     loadSessions()
     loadRealtimeStats()
-    
-    // Start polling for real-time updates
-    intervalRef.current = setInterval(() => {
-      loadRealtimeStats()
-    }, 3000) // Poll every 3 seconds
-    
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
+  }, [])
+
+  useEffect(() => {
+    if (socket && isConnected) {
+      // Join the monitoring room for global updates
+      socket.emit('join', 'monitoring-dashboard')
+      
+      // Listen for session updates
+      socket.on('session-update', (data: any) => {
+        setSessions(prevSessions => {
+          const index = prevSessions.findIndex(s => s.id === data.sessionId)
+          if (index >= 0) {
+            const updated = [...prevSessions]
+            updated[index] = { ...updated[index], ...data.updates }
+            return updated
+          }
+          return prevSessions
+        })
+      })
+      
+      // Listen for stats updates
+      socket.on('stats-update', (data: RealtimeStats) => {
+        setRealtimeStats(data)
+      })
+      
+      // Listen for progress updates
+      socket.on('progress', (data: any) => {
+        setSessions(prevSessions => {
+          const index = prevSessions.findIndex(s => s.id === data.sessionId)
+          if (index >= 0) {
+            const updated = [...prevSessions]
+            updated[index] = {
+              ...updated[index],
+              currentKeyword: data.currentKeyword,
+              progress: data.progress,
+              progressPercentage: data.progress,
+              processedKeywords: Math.floor((data.progress / 100) * updated[index].totalKeywords)
+            }
+            return updated
+          }
+          return prevSessions
+        })
+      })
+      
+      // Listen for session status changes
+      socket.on('session-status', (data: any) => {
+        setSessions(prevSessions => {
+          const index = prevSessions.findIndex(s => s.id === data.sessionId)
+          if (index >= 0) {
+            const updated = [...prevSessions]
+            updated[index] = {
+              ...updated[index],
+              status: data.status,
+              isRunning: data.status === 'RUNNING',
+              isPaused: data.status === 'PAUSED',
+              isCompleted: data.status === 'COMPLETED',
+              hasError: data.status === 'ERROR'
+            }
+            return updated
+          }
+          return prevSessions
+        })
+        
+        // Reload stats when session status changes
+        loadRealtimeStats()
+      })
+      
+      return () => {
+        socket.emit('leave', 'monitoring-dashboard')
+        socket.off('session-update')
+        socket.off('stats-update')
+        socket.off('progress')
+        socket.off('session-status')
       }
     }
-  }, [])
+  }, [socket, isConnected])
 
   const loadSessions = async () => {
     try {
@@ -424,7 +492,22 @@ export function MonitoringSessionsDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold">Sessões de Monitoramento</h2>
+          <h2 className="text-3xl font-bold flex items-center gap-2">
+            Sessões de Monitoramento
+            <Badge variant={isConnected ? "default" : "secondary"} className="text-xs">
+              {isConnected ? (
+                <>
+                  <Wifi className="h-3 w-3 mr-1" />
+                  Live
+                </>
+              ) : (
+                <>
+                  <WifiOff className="h-3 w-3 mr-1" />
+                  Offline
+                </>
+              )}
+            </Badge>
+          </h2>
           <p className="text-muted-foreground">
             Gerencie e monitore suas sessões de busca de keywords em tempo real
           </p>

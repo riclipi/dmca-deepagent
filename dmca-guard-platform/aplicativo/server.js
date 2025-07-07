@@ -12,10 +12,23 @@ const dev = process.env.NODE_ENV !== 'production'
 const hostname = 'localhost'
 const port = parseInt(process.env.PORT || '3000', 10)
 
-const app = next({ dev, hostname, port })
-const handle = app.getRequestHandler()
+// Run startup validation
+async function startServer() {
+  try {
+    // Only validate in production
+    if (process.env.NODE_ENV === 'production') {
+      const { runStartupValidation } = await import('./lib/config/startup-validator.js')
+      await runStartupValidation()
+    }
+  } catch (error) {
+    console.error('❌ Startup validation failed:', error.message)
+    process.exit(1)
+  }
 
-app.prepare().then(() => {
+  const app = next({ dev, hostname, port })
+  const handle = app.getRequestHandler()
+
+  await app.prepare()
   const server = createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true)
@@ -97,4 +110,10 @@ app.prepare().then(() => {
     console.log(`> Ready on http://${hostname}:${port}`)
     console.log('> Socket.io server configured')
   })
+}
+
+// Start the server
+startServer().catch((error) => {
+  console.error('Failed to start server:', error)
+  process.exit(1)
 })

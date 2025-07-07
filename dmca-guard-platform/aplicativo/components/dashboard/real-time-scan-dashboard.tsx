@@ -20,9 +20,12 @@ import {
   XCircle,
   Globe,
   Image,
-  Mail
+  Mail,
+  Wifi,
+  WifiOff
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useSocket } from '@/hooks/use-socket'
 
 interface ScanProgress {
   scanId: string
@@ -273,33 +276,99 @@ export function RealTimeScanDashboard({ brandProfiles }: RealTimeScanDashboardPr
   const [selectedProfile, setSelectedProfile] = useState(brandProfiles[0]?.id || '')
   
   const { toast } = useToast()
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const { socket, isConnected } = useSocket('/monitoring')
+  const lastActivityRef = useRef<string | null>(null)
 
   useEffect(() => {
     // Check for existing active scans on mount
     checkActiveScans()
-    
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
   }, [])
 
   useEffect(() => {
-    if (activeScan) {
-      // Start polling for updates
-      intervalRef.current = setInterval(() => {
-        fetchScanData(activeScan)
-      }, 2000) // Poll every 2 seconds
+    if (socket && isConnected && activeScan) {
+      const room = `scan:${activeScan}`
+      
+      // Join the scan room
+      socket.emit('join', room)
+      
+      // Listen for scan progress updates
+      socket.on('scan-progress', (data: any) => {
+        if (data.scanId === activeScan) {
+          setScanData(prevData => ({
+            ...prevData,
+            progress: {
+              ...prevData.progress!,
+              ...data.progress
+            }
+          }))
+        }
+      })
+      
+      // Listen for method updates
+      socket.on('scan-methods', (data: any) => {
+        if (data.scanId === activeScan) {
+          setScanData(prevData => ({
+            ...prevData,
+            methods: data.methods
+          }))
+        }
+      })
+      
+      // Listen for insights updates
+      socket.on('scan-insights', (data: any) => {
+        if (data.scanId === activeScan) {
+          setScanData(prevData => ({
+            ...prevData,
+            insights: data.insights
+          }))
+        }
+      })
+      
+      // Listen for new activities
+      socket.on('scan-activity', (data: any) => {
+        if (data.scanId === activeScan && data.activity.id !== lastActivityRef.current) {
+          lastActivityRef.current = data.activity.id
+          setScanData(prevData => ({
+            ...prevData,
+            activities: [data.activity, ...prevData.activities].slice(0, 50) // Keep last 50 activities
+          }))
+        }
+      })
+      
+      // Listen for scan completion
+      socket.on('scan-complete', (data: any) => {
+        if (data.scanId === activeScan) {
+          setScanData(prevData => ({
+            ...prevData,
+            progress: {
+              ...prevData.progress!,
+              isRunning: false,
+              completedAt: new Date(data.completedAt),
+              phase: 'completed'
+            }
+          }))
+          
+          toast({
+            title: 'Scan Completed',
+            description: `Found ${data.totalViolations} violations across ${data.sitesScanned} sites`,
+            duration: 5000
+          })
+        }
+      })
+      
+      // Get initial data once
+      fetchScanData(activeScan)
       
       return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current)
-        }
+        socket.emit('leave', room)
+        socket.off('scan-progress')
+        socket.off('scan-methods')
+        socket.off('scan-insights')
+        socket.off('scan-activity')
+        socket.off('scan-complete')
       }
     }
-  }, [activeScan])
+  }, [socket, isConnected, activeScan, toast])
 
   const checkActiveScans = async () => {
     try {
@@ -321,13 +390,6 @@ export function RealTimeScanDashboard({ brandProfiles }: RealTimeScanDashboardPr
       
       if (data.success) {
         setScanData(data.scan)
-        
-        // Stop polling if scan is completed
-        if (data.scan.progress && !data.scan.progress.isRunning) {
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current)
-          }
-        }
       }
     } catch (error) {
       console.error('Error fetching scan data:', error)
@@ -387,9 +449,13 @@ export function RealTimeScanDashboard({ brandProfiles }: RealTimeScanDashboardPr
       const data = await response.json()
       
       if (data.success) {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current)
-        }
+        setActiveScan(null)
+        setScanData({
+          progress: null,
+          methods: null,
+          insights: null,
+          activities: []
+        })
         toast({
           title: '⏹️ Scan Stopped',
           description: 'Scan stopped successfully'
@@ -438,6 +504,19 @@ export function RealTimeScanDashboard({ brandProfiles }: RealTimeScanDashboardPr
               <CardTitle className="flex items-center space-x-2">
                 <Shield className="h-6 w-6" />
                 <span>Real-Time Protection Scan</span>
+                <Badge variant={isConnected ? "default" : "secondary"} className="text-xs">
+                  {isConnected ? (
+                    <>
+                      <Wifi className="h-3 w-3 mr-1" />
+                      Live
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="h-3 w-3 mr-1" />
+                      Offline
+                    </>
+                  )}
+                </Badge>
               </CardTitle>
               <CardDescription>
                 Comprehensive leak detection across multiple platforms and search engines

@@ -1,201 +1,213 @@
 #!/usr/bin/env node
 
-const axios = require('axios')
+const axios = require('axios');
+const { 
+  validateTestEnvironment, 
+  getTestIds,
+  getTestBrandProfile,
+  getTestMonitoringSession,
+  logTestHeader,
+  shouldUseMockServices
+} = require('./lib/test-utils');
 
-const BASE_URL = 'http://localhost:3000'
-const USER_ID = 'cmbu5dsr700008kt9qdf5th1x'
+// Base URL configuration
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
-// Configuração para testes
-const testConfig = {
-  brandProfile: {
-    brandName: 'Teste Company',
-    description: 'Empresa de teste para demonstração',
-    officialUrls: ['https://teste-company.com'],
-    keywords: ['teste company', 'logo teste', 'marca teste']
-  },
-  monitoringSession: {
-    name: 'Sessão de Teste',
-    description: 'Monitoramento de teste',
-    targetPlatforms: ['google', 'youtube', 'social']
-  }
-}
-
-console.log('🚀 Testando todos os agentes do sistema DMCA Guard...\n')
-
-async function testSystemStatus() {
-  console.log('📊 1. Testando status do sistema...')
+async function testSystemStatus(userId) {
+  console.log('📊 1. Testando status do sistema...');
   try {
-    const response = await axios.get(`${BASE_URL}/api/dashboard/stats?userId=${USER_ID}`)
-    console.log('✅ Sistema respondendo:', response.status === 200 ? 'OK' : 'ERRO')
-    console.log('📈 Stats:', JSON.stringify(response.data, null, 2))
+    const response = await axios.get(`${BASE_URL}/api/dashboard/stats?userId=${userId}`);
+    console.log('✅ Sistema respondendo:', response.status === 200 ? 'OK' : 'ERRO');
+    console.log('📈 Stats:', JSON.stringify(response.data, null, 2));
   } catch (error) {
-    console.log('❌ Erro no sistema:', error.message)
+    console.log('❌ Erro no sistema:', error.message);
   }
-  console.log('')
+  console.log('');
 }
 
-async function testBrandProfile() {
-  console.log('🏢 2. Testando perfis de marca...')
+async function testBrandProfile(userId) {
+  console.log('🏢 2. Testando perfis de marca...');
   try {
-    // Listar perfis existentes
-    const listResponse = await axios.get(`${BASE_URL}/api/brand-profiles`)
-    console.log('✅ Perfis existentes:', listResponse.data.length)
+    // List existing profiles
+    const listResponse = await axios.get(`${BASE_URL}/api/brand-profiles`);
+    console.log('✅ Perfis existentes:', listResponse.data.length);
     
-    // Criar novo perfil (opcional, se não existir)
+    // Create new profile if none exist
     if (listResponse.data.length === 0) {
+      const testProfile = getTestBrandProfile();
       const createResponse = await axios.post(`${BASE_URL}/api/brand-profiles`, {
-        ...testConfig.brandProfile,
-        userId: USER_ID
-      })
-      console.log('✅ Novo perfil criado:', createResponse.data.id)
-      return createResponse.data.id
+        ...testProfile,
+        userId: userId
+      });
+      console.log('✅ Novo perfil criado:', createResponse.data.id);
+      return createResponse.data.id;
     } else {
-      console.log('✅ Usando perfil existente:', listResponse.data[0].id)
-      return listResponse.data[0].id
+      console.log('✅ Usando perfil existente:', listResponse.data[0].id);
+      return listResponse.data[0].id;
     }
   } catch (error) {
-    console.log('❌ Erro nos perfis:', error.message)
-    return null
+    console.log('❌ Erro nos perfis:', error.message);
+    return null;
   }
 }
 
-async function testMonitoringSession(brandProfileId) {
-  console.log('🔍 3. Testando sessões de monitoramento...')
+async function testMonitoringSession(userId, brandProfileId) {
+  console.log('🔍 3. Testando sessões de monitoramento...');
   try {
-    // Listar sessões existentes
-    const listResponse = await axios.get(`${BASE_URL}/api/monitoring-sessions?userId=${USER_ID}`)
-    console.log('✅ Sessões existentes:', listResponse.data.length)
+    // List existing sessions
+    const listResponse = await axios.get(`${BASE_URL}/api/monitoring-sessions?userId=${userId}`);
+    console.log('✅ Sessões existentes:', listResponse.data.length);
     
-    // Criar nova sessão de teste
+    // Create new test session
     if (brandProfileId) {
+      const testSession = getTestMonitoringSession();
       const createResponse = await axios.post(`${BASE_URL}/api/monitoring-sessions`, {
-        ...testConfig.monitoringSession,
-        userId: USER_ID,
+        ...testSession,
+        userId: userId,
         brandProfileId: brandProfileId
-      })
-      console.log('✅ Nova sessão criada:', createResponse.data.id)
-      return createResponse.data.id
+      });
+      console.log('✅ Nova sessão criada:', createResponse.data.id);
+      return createResponse.data.id;
     }
   } catch (error) {
-    console.log('❌ Erro nas sessões:', error.message)
-    return null
+    console.log('❌ Erro nas sessões:', error.message);
+    return null;
   }
 }
 
 async function testRealSearch(sessionId) {
-  console.log('🔎 4. Testando busca real...')
+  console.log('🔎 4. Testando busca real...');
   try {
     if (sessionId) {
+      const isMockMode = shouldUseMockServices();
+      console.log(`   Modo: ${isMockMode ? 'MOCK' : 'REAL'}`);
+      
       const searchResponse = await axios.post(`${BASE_URL}/api/scan/real-search`, {
         sessionId: sessionId,
         keywords: ['teste', 'exemplo'],
         maxResults: 5
-      })
-      console.log('✅ Busca real iniciada:', searchResponse.data.searchId || 'OK')
+      });
+      console.log('✅ Busca real iniciada:', searchResponse.data.searchId || 'OK');
     } else {
-      console.log('⏭️ Pulando busca real (sem sessão)')
+      console.log('⏭️ Pulando busca real (sem sessão)');
     }
   } catch (error) {
-    console.log('❌ Erro na busca real:', error.message)
+    console.log('❌ Erro na busca real:', error.message);
   }
 }
 
 async function testKnownSites() {
-  console.log('🌐 5. Testando sites conhecidos...')
+  console.log('🌐 5. Testando sites conhecidos...');
   try {
-    const sitesResponse = await axios.get(`${BASE_URL}/api/known-sites`)
-    console.log('✅ Sites conhecidos:', sitesResponse.data.length)
+    const sitesResponse = await axios.get(`${BASE_URL}/api/known-sites`);
+    console.log('✅ Sites conhecidos:', sitesResponse.data.length);
     
-    // Teste de estatísticas
-    const statsResponse = await axios.get(`${BASE_URL}/api/known-sites/stats`)
-    console.log('✅ Estatísticas dos sites:', JSON.stringify(statsResponse.data, null, 2))
+    // Test statistics
+    const statsResponse = await axios.get(`${BASE_URL}/api/known-sites/stats`);
+    console.log('✅ Estatísticas dos sites:', JSON.stringify(statsResponse.data, null, 2));
   } catch (error) {
-    console.log('❌ Erro nos sites conhecidos:', error.message)
+    console.log('❌ Erro nos sites conhecidos:', error.message);
   }
 }
 
 async function testAgentAPIs() {
-  console.log('🤖 6. Testando APIs dos agentes...')
+  console.log('🤖 6. Testando APIs dos agentes...');
   
-  // Teste do agente de descoberta
+  // Discovery agent test
   try {
-    console.log('   🔍 Agente de Descoberta...')
-    // Como não temos sessionId específico, testamos a estrutura
-    console.log('   ✅ Estrutura da API de descoberta: OK')
+    console.log('   🔍 Agente de Descoberta...');
+    console.log('   ✅ Estrutura da API de descoberta: OK');
   } catch (error) {
-    console.log('   ❌ Erro no agente de descoberta:', error.message)
+    console.log('   ❌ Erro no agente de descoberta:', error.message);
   }
   
-  // Teste do agente de sites conhecidos
+  // Known sites agent test
   try {
-    console.log('   🌐 Agente de Sites Conhecidos...')
-    // Teste básico de estrutura
-    console.log('   ✅ Estrutura da API de sites conhecidos: OK')
+    console.log('   🌐 Agente de Sites Conhecidos...');
+    console.log('   ✅ Estrutura da API de sites conhecidos: OK');
   } catch (error) {
-    console.log('   ❌ Erro no agente de sites conhecidos:', error.message)
+    console.log('   ❌ Erro no agente de sites conhecidos:', error.message);
   }
 }
 
 async function testAnalytics() {
-  console.log('📊 7. Testando analytics...')
+  console.log('📊 7. Testando analytics...');
   try {
-    const analyticsResponse = await axios.get(`${BASE_URL}/api/analytics/summary`)
-    console.log('✅ Analytics funcionando:', analyticsResponse.status === 200 ? 'OK' : 'ERRO')
-    console.log('📈 Resumo:', JSON.stringify(analyticsResponse.data, null, 2))
+    const analyticsResponse = await axios.get(`${BASE_URL}/api/analytics/summary`);
+    console.log('✅ Analytics funcionando:', analyticsResponse.status === 200 ? 'OK' : 'ERRO');
+    console.log('📈 Resumo:', JSON.stringify(analyticsResponse.data, null, 2));
   } catch (error) {
-    console.log('❌ Erro no analytics:', error.message)
+    console.log('❌ Erro no analytics:', error.message);
   }
 }
 
 async function testNotifications() {
-  console.log('🔔 8. Testando notificações...')
+  console.log('🔔 8. Testando notificações...');
   try {
-    const notificationsResponse = await axios.get(`${BASE_URL}/api/notifications`)
-    console.log('✅ Notificações:', notificationsResponse.data.length || 0, 'encontradas')
+    const notificationsResponse = await axios.get(`${BASE_URL}/api/notifications`);
+    console.log('✅ Notificações:', notificationsResponse.data.length || 0, 'encontradas');
   } catch (error) {
-    console.log('❌ Erro nas notificações:', error.message)
+    console.log('❌ Erro nas notificações:', error.message);
   }
 }
 
 async function runAllTests() {
-  console.log('🧪 Iniciando bateria completa de testes...\n')
+  // Validate test environment first
+  validateTestEnvironment();
   
-  await testSystemStatus()
-  const brandProfileId = await testBrandProfile()
-  console.log('')
+  // Log test header
+  logTestHeader('TESTE COMPLETO DOS AGENTES');
   
-  const sessionId = await testMonitoringSession(brandProfileId)
-  console.log('')
+  // Get test user ID
+  const testIds = getTestIds();
+  const userId = testIds.userId;
   
-  await testRealSearch(sessionId)
-  console.log('')
+  console.log(`📋 Configuração do teste:`);
+  console.log(`- User ID: ${userId}`);
+  console.log(`- Base URL: ${BASE_URL}`);
+  console.log(`- Mock Services: ${shouldUseMockServices() ? 'SIM' : 'NÃO'}`);
+  console.log('');
   
-  await testKnownSites()
-  console.log('')
+  // Run all tests
+  await testSystemStatus(userId);
+  const brandProfileId = await testBrandProfile(userId);
+  console.log('');
   
-  await testAgentAPIs()
-  console.log('')
+  const sessionId = await testMonitoringSession(userId, brandProfileId);
+  console.log('');
   
-  await testAnalytics()
-  console.log('')
+  await testRealSearch(sessionId);
+  console.log('');
   
-  await testNotifications()
-  console.log('')
+  await testKnownSites();
+  console.log('');
   
-  console.log('🎉 Teste completo finalizado!')
-  console.log('')
-  console.log('📋 Próximos passos:')
-  console.log('1. Acesse o dashboard: http://localhost:3000/dashboard')
-  console.log('2. Acesse o admin: http://localhost:3000/admin')
-  console.log('3. Teste as interfaces web')
-  console.log('4. Configure monitoramento real')
-  console.log('')
-  console.log('📖 Consulte o GUIA-AGENTES.md para mais detalhes')
+  await testAgentAPIs();
+  console.log('');
+  
+  await testAnalytics();
+  console.log('');
+  
+  await testNotifications();
+  console.log('');
+  
+  console.log('🎉 Teste completo finalizado!');
+  console.log('');
+  console.log('📋 Próximos passos:');
+  console.log(`1. Acesse o dashboard: ${BASE_URL}/dashboard`);
+  console.log(`2. Acesse o admin: ${BASE_URL}/admin`);
+  console.log('3. Teste as interfaces web');
+  console.log('4. Configure monitoramento real');
+  console.log('');
+  console.log('📖 Consulte o GUIA-AGENTES.md para mais detalhes');
 }
 
-// Executar testes se chamado diretamente
+// Execute tests if called directly
 if (require.main === module) {
-  runAllTests().catch(console.error)
+  runAllTests().catch((error) => {
+    console.error('❌ Erro fatal:', error);
+    process.exit(1);
+  });
 }
 
 module.exports = {
@@ -208,4 +220,4 @@ module.exports = {
   testAgentAPIs,
   testAnalytics,
   testNotifications
-}
+};
