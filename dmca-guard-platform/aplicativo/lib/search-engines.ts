@@ -419,21 +419,28 @@ export class SearchEngineService {
     }
   }
 
-  // Busca específica em sites adultos
-  async searchAdultSites(keyword: string, config: SearchConfig): Promise<SearchResult[]> {
+  // Busca específica em sites prioritários
+  async searchPrioritySites(keyword: string, config: SearchConfig): Promise<SearchResult[]> {
+    // Lista reduzida de sites prioritários para busca direcionada
+    const prioritySites = [
+      'reddit.com', 'twitter.com', 'telegram.me', 'discord.gg',
+      'mega.nz', 'pornhub.com', 'xvideos.com', 'erome.com',
+      'fapello.com', 'coomer.party', 'kemono.party', 'bunkr.ru'
+    ];
+    
     const results: SearchResult[] = [];
     
-    for (const site of ADULT_LEAK_SITES) {
+    for (const site of prioritySites) {
       try {
         // Busca site-específica
-        const siteQuery = `site:${site} "${config.brandName}" OR "${keyword}"`;
+        const siteQuery = `site:${site} "${config.brandName}"`;
         
         // Usa Serper para buscar em sites específicos
         const siteResults = await this.searchSerper(siteQuery, config);
         results.push(...siteResults);
         
-        // Rate limiting reduzido para melhor performance
-        await this.delay(50);
+        // Rate limiting para evitar sobrecarga
+        await this.delay(100);
         
       } catch (error) {
         console.error(`Erro buscando em ${site}:`, error);
@@ -455,10 +462,10 @@ export class SearchEngineService {
     
     try {
       // Busca paralela em múltiplas fontes para esta keyword específica
-      const [googleResults, serperResults, adultResults] = await Promise.allSettled([
+      const [googleResults, serperResults, priorityResults] = await Promise.allSettled([
         this.searchGoogle(keyword, config),
         this.searchSerper(keyword, config),
-        this.searchAdultSites(keyword, config)
+        this.searchPrioritySites(keyword, config)
       ]);
       
       // Coleta resultados bem-sucedidos e registra falhas
@@ -474,10 +481,10 @@ export class SearchEngineService {
         apiErrors.push(`Serper API: ${serperResults.reason}`);
       }
       
-      if (adultResults.status === 'fulfilled') {
-        allResults.push(...adultResults.value.map(r => ({ ...r, keyword })));
+      if (priorityResults.status === 'fulfilled') {
+        allResults.push(...priorityResults.value.map(r => ({ ...r, keyword })));
       } else {
-        apiErrors.push(`Adult Sites: ${adultResults.reason}`);
+        apiErrors.push(`Priority Sites: ${priorityResults.reason}`);
       }
       
     } catch (error) {

@@ -20,41 +20,19 @@ export interface ScannerConfig {
 }
 
 export function getScannerConfig(): ScannerConfig {
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const isProduction = process.env.NODE_ENV === 'production';
-  
-  // In production, force real implementations
-  if (isProduction) {
-    return {
-      useRealSearch: true,
-      useRealImageAnalysis: false, // Set to true when image analysis API is configured
-      useRealDMCADetection: true,
-      searchEngines: {
-        google: !!(process.env.GOOGLE_API_KEY && process.env.GOOGLE_CSE_ID),
-        bing: false, // Add Bing API when available
-        duckduckgo: false, // DuckDuckGo doesn't have official API
-        serper: !!process.env.SERPER_API_KEY
-      },
-      imageAnalysis: {
-        provider: 'mock', // Change to real provider when configured
-        apiKey: process.env.GOOGLE_VISION_API_KEY
-      }
-    };
-  }
-  
-  // In development, allow mocks unless explicitly disabled
+  // Always use real implementations - no more mocks
   return {
-    useRealSearch: process.env.USE_REAL_SEARCH === 'true',
-    useRealImageAnalysis: process.env.USE_REAL_IMAGE_ANALYSIS === 'true',
-    useRealDMCADetection: process.env.USE_REAL_DMCA === 'true',
+    useRealSearch: true,
+    useRealImageAnalysis: false, // Requires Google Vision API or similar
+    useRealDMCADetection: true,
     searchEngines: {
       google: !!(process.env.GOOGLE_API_KEY && process.env.GOOGLE_CSE_ID),
-      bing: false,
-      duckduckgo: false,
+      bing: false, // Requires Bing Search API
+      duckduckgo: false, // No official API available
       serper: !!process.env.SERPER_API_KEY
     },
     imageAnalysis: {
-      provider: 'mock',
+      provider: process.env.GOOGLE_VISION_API_KEY ? 'google-vision' : 'mock',
       apiKey: process.env.GOOGLE_VISION_API_KEY
     }
   };

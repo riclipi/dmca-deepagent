@@ -2,6 +2,7 @@ import { EventEmitter } from 'events'
 import { dmcaContactDetector } from './dmca-contact-detector'
 import { prisma } from './prisma'
 import { emitToRoom } from './socket-server'
+import SearchEngineService from './search-engines'
 
 export interface ScanProgress {
   scanId: string
@@ -143,244 +144,597 @@ class RealTimeScanner extends EventEmitter {
   private async runSearchEnginePhase(scanId: string, profile: any) {
     this.updateProgress(scanId, 10, 'searching', '🔍 Searching across multiple search engines...')
     
-    const keywords = this.generateSearchKeywords(profile.brandName)
-    const searchEngines = ['Google', 'Bing', 'DuckDuckGo']
+    // Initialize search service
+    const searchService = new SearchEngineService()
+    
+    // Get keywords from profile
+    let keywords: string[] = []
+    if (profile.safeKeywords && profile.safeKeywords.length > 0) {
+      // Use safe keywords from profile
+      keywords = profile.safeKeywords
+      console.log(`🔐 Using ${keywords.length} safe keywords from profile`)
+    } else {
+      // Generate keywords from brand name
+      keywords = searchService.generateSearchKeywords(profile.brandName)
+      console.log(`⚠️ Generated ${keywords.length} keywords from brand name`)
+    }
+    
+    // Get whitelist domains
+    const domainWhitelists = await prisma.domainWhitelist.findMany({
+      where: { userId: profile.userId },
+      select: { domain: true }
+    })
+    
+    const excludeDomains = [
+      ...domainWhitelists.map(w => w.domain),
+      ...profile.officialUrls.map((url: string) => new URL(url).hostname),
+      'onlyfans.com'
+    ]
     
     let totalQueries = 0
+    let totalResults = 0
+    let leaksFound = 0
+    const searchEngines: string[] = []
+    const detectedUrls = new Set<string>()
     
-    for (const engine of searchEngines) {
-      for (const keyword of keywords) {
+    // Process keywords in batches
+    const batchSize = 3
+    for (let i = 0; i < keywords.length; i += batchSize) {
+      const batch = keywords.slice(i, i + batchSize)
+      
+      // Process batch in parallel
+      const batchPromises = batch.map(async (keyword) => {
         this.addActivity(scanId, {
-          id: `activity_${Date.now()}`,
+          id: `activity_${Date.now()}_${Math.random()}`,
           timestamp: new Date(),
           type: 'search',
-          message: `🔍 Searching ${engine} for "${keyword}"...`,
+          message: `🔍 Searching for "${keyword}"...`,
           icon: '🔍',
           status: 'running'
         })
-
-        // Simulate search delay
-        await this.delay(500)
         
-        // Mock search results
-        const results = Math.floor(Math.random() * 50) + 10
-        totalQueries++
+        try {
+          // Perform real search
+          const searchConfig = {
+            keyword,
+            brandName: profile.brandName,
+            excludeDomains,
+            maxResults: 20,
+            platforms: []
+          }
+          
+          const results = await searchService.performCompleteSearch(searchConfig)
+          totalQueries++
+          
+          if (results.length > 0) {
+            totalResults += results.length
+            
+            // Count high confidence results as leaks
+            const highConfidenceResults = results.filter(r => r.confidence >= 60)
+            leaksFound += highConfidenceResults.length
+            
+            // Track unique URLs
+            results.forEach(r => detectedUrls.add(r.url))
+            
+            // Track which search engines returned results
+            const resultSources = [...new Set(results.map(r => r.source))]
+            resultSources.forEach(source => {
+              if (!searchEngines.includes(source)) searchEngines.push(source)
+            })
+            
+            this.addActivity(scanId, {
+              id: `activity_${Date.now()}_${Math.random()}`,
+              timestamp: new Date(),
+              type: 'detection',
+              message: `✅ Found ${results.length} results for "${keyword}" (${highConfidenceResults.length} high confidence)`,
+              icon: '✅',
+              status: highConfidenceResults.length > 0 ? 'warning' : 'success',
+              metadata: { 
+                keyword, 
+                results: results.length,
+                highConfidence: highConfidenceResults.length,
+                sources: resultSources
+              }
+            })
+            
+            // Save high confidence results to database
+            for (const result of highConfidenceResults) {
+              try {
+                // Check if already exists
+                const existing = await prisma.detectedContent.findFirst({
+                  where: {
+                    infringingUrl: result.url,
+                    brandProfileId: profile.id
+                  }
+                })
+                
+                if (!existing && result.confidence >= 50) {
+                  await prisma.detectedContent.create({
+                    data: {
+                      userId: profile.userId,
+                      brandProfileId: profile.id,
+                      title: result.title,
+                      description: result.snippet,
+                      contentType: 'OTHER',
+                      infringingUrl: result.url,
+                      platform: result.platform,
+                      thumbnailUrl: result.thumbnailUrl,
+                      confidence: Math.round(result.confidence),
+                      keywordSource: keyword,
+                      platformType: result.source,
+                      priority: result.confidence >= 70 ? 'HIGH' : 'MEDIUM',
+                      detectedAt: result.detectedAt || new Date()
+                    }
+                  })
+                }
+              } catch (error) {
+                console.error(`Error saving result: ${error}`)
+              }
+            }
+          } else {
+            this.addActivity(scanId, {
+              id: `activity_${Date.now()}_${Math.random()}`,
+              timestamp: new Date(),
+              type: 'verification',
+              message: `✅ No results found for "${keyword}"`,
+              icon: '✅',
+              status: 'success'
+            })
+          }
+        } catch (error) {
+          console.error(`Error searching for "${keyword}":`, error)
+          this.addActivity(scanId, {
+            id: `activity_${Date.now()}_${Math.random()}`,
+            timestamp: new Date(),
+            type: 'search',
+            message: `⚠️ Error searching for "${keyword}"`,
+            icon: '⚠️',
+            status: 'error'
+          })
+        }
         
         this.updateScanInsights(scanId, (insights) => ({
           ...insights,
-          linksAnalysed: insights.linksAnalysed + results
+          linksAnalysed: detectedUrls.size,
+          leaksFound: leaksFound,
+          leakingSites: leaksFound > 0 ? Math.min(leaksFound, detectedUrls.size) : 0,
+          riskLevel: leaksFound > 5 ? 'HIGH' : leaksFound > 2 ? 'MEDIUM' : 'LOW' as any
         }))
-
-        this.addActivity(scanId, {
-          id: `activity_${Date.now()}`,
-          timestamp: new Date(),
-          type: 'detection',
-          message: `✅ Found ${results} results on ${engine}`,
-          icon: '✅',
-          status: 'success',
-          metadata: { engine, keyword, results }
-        })
-
+        
         this.emitUpdate(scanId)
+      })
+      
+      // Wait for batch to complete
+      await Promise.allSettled(batchPromises)
+      
+      // Small delay between batches
+      if (i + batchSize < keywords.length) {
+        await this.delay(1000)
       }
     }
-
+    
     this.updateScanMethods(scanId, (methods) => ({
       ...methods,
-      searchEngines: { completed: true, queries: totalQueries, engines: searchEngines }
+      searchEngines: { 
+        completed: true, 
+        queries: totalQueries, 
+        engines: searchEngines.length > 0 ? searchEngines : ['No APIs configured']
+      }
     }))
-
-    this.updateProgress(scanId, 30, 'searching', '✅ Search engine queries completed')
+    
+    const message = totalResults > 0 
+      ? `✅ Search completed: ${totalResults} results found across ${totalQueries} queries`
+      : '⚠️ Search completed: No results found (check API configuration)'
+    
+    this.updateProgress(scanId, 30, 'searching', message)
   }
 
   private async runTargetedSitePhase(scanId: string, profile: any) {
     this.updateProgress(scanId, 40, 'analyzing', '🎯 Scanning targeted adult sites...')
     
+    // Initialize search service
+    const searchService = new SearchEngineService()
+    
+    // Priority sites to check with site-specific searches
     const targetSites = [
-      'xvideos.com', 'pornhub.com', 'onlyfans.com', 'reddit.com',
-      'telegram.me', 'discord.gg', 'fapello.com', 'thothub.tv'
+      'reddit.com',
+      'twitter.com', 
+      'x.com',
+      'telegram.me',
+      'discord.gg',
+      'mega.nz',
+      'pornhub.com',
+      'xvideos.com',
+      'spankbang.com',
+      'erome.com',
+      'fapello.com',
+      'thothub.tv',
+      'coomer.party',
+      'kemono.party',
+      'bunkr.ru',
+      'cyberfile.su'
     ]
     
-    let leaksFound = 0
+    // Get whitelist domains
+    const domainWhitelists = await prisma.domainWhitelist.findMany({
+      where: { userId: profile.userId },
+      select: { domain: true }
+    })
     
-    for (const site of targetSites) {
-      this.addActivity(scanId, {
-        id: `activity_${Date.now()}`,
-        timestamp: new Date(),
-        type: 'search',
-        message: `🎯 Scanning ${site} for leaked content...`,
-        icon: '🎯',
-        status: 'running'
-      })
-
-      await this.delay(800)
+    const excludeDomains = [
+      ...domainWhitelists.map(w => w.domain),
+      ...profile.officialUrls.map((url: string) => new URL(url).hostname),
+      'onlyfans.com'
+    ]
+    
+    let sitesWithLeaks = 0
+    let totalLeaksFound = 0
+    const scannedSites: string[] = []
+    
+    // Process sites in batches
+    const batchSize = 3
+    for (let i = 0; i < targetSites.length; i += batchSize) {
+      const batch = targetSites.slice(i, i + batchSize)
       
-      // Simulate finding leaks
-      const hasLeak = Math.random() > 0.7
-      if (hasLeak) {
-        leaksFound++
+      const batchPromises = batch.map(async (site) => {
+        this.addActivity(scanId, {
+          id: `activity_${Date.now()}_${Math.random()}`,
+          timestamp: new Date(),
+          type: 'search',
+          message: `🎯 Scanning ${site} for leaked content...`,
+          icon: '🎯',
+          status: 'running'
+        })
         
-        this.addActivity(scanId, {
-          id: `activity_${Date.now()}`,
-          timestamp: new Date(),
-          type: 'detection',
-          message: `⚠️ Confirmed leak detected on ${site}`,
-          icon: '⚠️',
-          status: 'warning',
-          metadata: { site, type: 'leak' }
-        })
-
-        this.updateScanInsights(scanId, (insights) => ({
-          ...insights,
-          leaksFound: insights.leaksFound + 1,
-          leakingSites: insights.leakingSites + 1,
-          riskLevel: leaksFound > 2 ? 'HIGH' : leaksFound > 1 ? 'MEDIUM' : 'LOW' as any
-        }))
-      } else {
-        this.addActivity(scanId, {
-          id: `activity_${Date.now()}`,
-          timestamp: new Date(),
-          type: 'verification',
-          message: `✅ No leaks found on ${site}`,
-          icon: '✅',
-          status: 'success'
-        })
+        try {
+          // Create site-specific search query
+          const siteQuery = `site:${site} "${profile.brandName}"`
+          
+          const searchConfig = {
+            keyword: siteQuery,
+            brandName: profile.brandName,
+            excludeDomains,
+            maxResults: 10,
+            platforms: [site]
+          }
+          
+          const results = await searchService.performCompleteSearch(searchConfig)
+          scannedSites.push(site)
+          
+          if (results.length > 0) {
+            const highConfidenceResults = results.filter(r => r.confidence >= 50)
+            
+            if (highConfidenceResults.length > 0) {
+              sitesWithLeaks++
+              totalLeaksFound += highConfidenceResults.length
+              
+              this.addActivity(scanId, {
+                id: `activity_${Date.now()}_${Math.random()}`,
+                timestamp: new Date(),
+                type: 'detection',
+                message: `⚠️ Found ${highConfidenceResults.length} potential leaks on ${site}`,
+                icon: '⚠️',
+                status: 'warning',
+                metadata: { 
+                  site, 
+                  type: 'leak',
+                  count: highConfidenceResults.length,
+                  urls: highConfidenceResults.slice(0, 3).map(r => r.url)
+                }
+              })
+              
+              // Save results to database
+              for (const result of highConfidenceResults) {
+                try {
+                  const existing = await prisma.detectedContent.findFirst({
+                    where: {
+                      infringingUrl: result.url,
+                      brandProfileId: profile.id
+                    }
+                  })
+                  
+                  if (!existing) {
+                    await prisma.detectedContent.create({
+                      data: {
+                        userId: profile.userId,
+                        brandProfileId: profile.id,
+                        title: result.title,
+                        description: result.snippet,
+                        contentType: 'OTHER',
+                        infringingUrl: result.url,
+                        platform: site,
+                        thumbnailUrl: result.thumbnailUrl,
+                        confidence: Math.round(result.confidence),
+                        keywordSource: `site:${site}`,
+                        platformType: 'targeted_scan',
+                        priority: result.confidence >= 70 ? 'HIGH' : 'MEDIUM',
+                        detectedAt: new Date()
+                      }
+                    })
+                  }
+                } catch (error) {
+                  console.error(`Error saving result from ${site}:`, error)
+                }
+              }
+            } else {
+              this.addActivity(scanId, {
+                id: `activity_${Date.now()}_${Math.random()}`,
+                timestamp: new Date(),
+                type: 'verification',
+                message: `✅ No high-confidence leaks found on ${site}`,
+                icon: '✅',
+                status: 'success'
+              })
+            }
+          } else {
+            this.addActivity(scanId, {
+              id: `activity_${Date.now()}_${Math.random()}`,
+              timestamp: new Date(),
+              type: 'verification',
+              message: `✅ No content found on ${site}`,
+              icon: '✅',
+              status: 'success'
+            })
+          }
+        } catch (error) {
+          console.error(`Error scanning ${site}:`, error)
+          this.addActivity(scanId, {
+            id: `activity_${Date.now()}_${Math.random()}`,
+            timestamp: new Date(),
+            type: 'search',
+            message: `⚠️ Error scanning ${site}`,
+            icon: '⚠️',
+            status: 'error'
+          })
+        }
+        
+        this.emitUpdate(scanId)
+      })
+      
+      await Promise.allSettled(batchPromises)
+      
+      // Update insights after each batch
+      const currentInsights = this.scanInsights.get(scanId)!
+      this.updateScanInsights(scanId, (insights) => ({
+        ...insights,
+        leakingSites: sitesWithLeaks,
+        leaksFound: currentInsights.leaksFound + totalLeaksFound,
+        riskLevel: totalLeaksFound > 5 ? 'HIGH' : totalLeaksFound > 2 ? 'MEDIUM' : 'LOW' as any
+      }))
+      
+      // Small delay between batches
+      if (i + batchSize < targetSites.length) {
+        await this.delay(1000)
       }
-
-      this.emitUpdate(scanId)
     }
-
+    
     this.updateScanMethods(scanId, (methods) => ({
       ...methods,
-      targetedSiteScans: { completed: true, count: targetSites.length, sites: targetSites }
+      targetedSiteScans: { 
+        completed: true, 
+        count: scannedSites.length, 
+        sites: scannedSites 
+      }
     }))
 
-    this.updateProgress(scanId, 60, 'analyzing', '✅ Targeted site scanning completed')
+    const message = sitesWithLeaks > 0
+      ? `⚠️ Targeted scan completed: Found leaks on ${sitesWithLeaks} sites`
+      : '✅ Targeted scan completed: No leaks found on priority sites'
+      
+    this.updateProgress(scanId, 60, 'analyzing', message)
   }
 
   private async runImageAnalysisPhase(scanId: string, profile: any) {
-    this.updateProgress(scanId, 70, 'verifying', '🖼️ Running advanced image analysis...')
+    this.updateProgress(scanId, 70, 'verifying', '🖼️ Preparing image analysis...')
     
-    const mockImages = 25
-    let processedImages = 0
-    let matches = 0
+    // For now, we'll skip actual image analysis as it requires additional APIs
+    // This phase can be implemented later with:
+    // - Google Vision API for face detection
+    // - PimEyes API for reverse image search
+    // - Custom image hashing for duplicate detection
     
-    for (let i = 0; i < mockImages; i++) {
-      processedImages++
-      
-      if (i % 5 === 0) {
-        this.addActivity(scanId, {
-          id: `activity_${Date.now()}`,
-          timestamp: new Date(),
-          type: 'verification',
-          message: `🖼️ Analyzing image batch ${Math.floor(i/5) + 1}/${Math.ceil(mockImages/5)}...`,
-          icon: '🖼️',
-          status: 'running'
-        })
-      }
-
-      await this.delay(200)
-      
-      // Simulate face recognition match
-      if (Math.random() > 0.8) {
-        matches++
-        
-        this.addActivity(scanId, {
-          id: `activity_${Date.now()}`,
-          timestamp: new Date(),
-          type: 'detection',
-          message: `🎯 Face match confirmed (${Math.floor(Math.random() * 20) + 80}% confidence)`,
-          icon: '🎯',
-          status: 'warning'
-        })
-      }
-
-      this.updateScanInsights(scanId, (insights) => ({
-        ...insights,
-        imagesScanned: processedImages
-      }))
-
-      if (i % 3 === 0) {
-        this.emitUpdate(scanId)
-      }
-    }
-
+    this.addActivity(scanId, {
+      id: `activity_${Date.now()}_${Math.random()}`,
+      timestamp: new Date(),
+      type: 'verification',
+      message: '🖼️ Image analysis phase skipped (requires additional APIs)',
+      icon: '🖼️',
+      status: 'success'
+    })
+    
+    // Mark the phase as completed but with no results
     this.updateScanMethods(scanId, (methods) => ({
       ...methods,
-      imageSearches: { completed: true, images: mockImages, processed: processedImages },
-      reverseImageSearches: { completed: true, matches, verified: matches }
+      imageSearches: { completed: true, images: 0, processed: 0 },
+      reverseImageSearches: { completed: true, matches: 0, verified: 0 }
     }))
-
-    this.updateProgress(scanId, 85, 'verifying', '✅ Image analysis completed')
+    
+    this.updateProgress(scanId, 85, 'verifying', '⏭️ Image analysis skipped')
+    
+    // Small delay to show the status
+    await this.delay(1000)
   }
 
   private async runDmcaDetectionPhase(scanId: string) {
     this.updateProgress(scanId, 90, 'verifying', '📧 Detecting DMCA contacts...')
     
-    const insights = this.scanInsights.get(scanId)!
-    const leakingSites = insights.leakingSites
+    const scanProgress = this.activeScans.get(scanId)!
     
-    let dmcaContacts = 0
-    let compliantSites = 0
-    
-    for (let i = 0; i < leakingSites; i++) {
-      const mockSite = `site${i + 1}.com`
-      
-      this.addActivity(scanId, {
-        id: `activity_${Date.now()}`,
-        timestamp: new Date(),
-        type: 'dmca',
-        message: `📧 Detecting DMCA contact for ${mockSite}...`,
-        icon: '📧',
-        status: 'running'
-      })
-
-      await this.delay(600)
-      
-      // Simulate DMCA contact detection
-      if (Math.random() > 0.3) {
-        dmcaContacts++
-        const email = `dmca@${mockSite}`
-        const isCompliant = Math.random() > 0.5
-        
-        if (isCompliant) compliantSites++
-        
-        this.addActivity(scanId, {
-          id: `activity_${Date.now()}`,
-          timestamp: new Date(),
-          type: 'dmca',
-          message: `✅ DMCA contact found: ${email} ${isCompliant ? '(Compliant)' : '(Non-compliant)'}`,
-          icon: '✅',
-          status: 'success',
-          metadata: { email, isCompliant }
-        })
-      } else {
-        this.addActivity(scanId, {
-          id: `activity_${Date.now()}`,
-          timestamp: new Date(),
-          type: 'dmca',
-          message: `⚠️ No DMCA contact found for ${mockSite}`,
-          icon: '⚠️',
-          status: 'warning'
-        })
+    // Get detected content from this scan
+    const detectedContent = await prisma.detectedContent.findMany({
+      where: {
+        userId: scanProgress.userId,
+        createdAt: {
+          gte: scanProgress.startedAt
+        }
+      },
+      select: {
+        infringingUrl: true,
+        platform: true
       }
-
-      this.emitUpdate(scanId)
+    })
+    
+    // Extract unique domains
+    const uniqueDomains = new Set<string>()
+    detectedContent.forEach(content => {
+      try {
+        const domain = new URL(content.infringingUrl).hostname
+        uniqueDomains.add(domain)
+      } catch (error) {
+        console.error(`Invalid URL: ${content.infringingUrl}`)
+      }
+    })
+    
+    console.log(`📧 Checking DMCA contacts for ${uniqueDomains.size} unique domains`)
+    
+    let dmcaContactsFound = 0
+    let compliantSites = 0
+    const dmcaResults: Array<{domain: string, contact: any}> = []
+    
+    // Process domains in batches
+    const domains = Array.from(uniqueDomains)
+    const batchSize = 3
+    
+    for (let i = 0; i < domains.length; i += batchSize) {
+      const batch = domains.slice(i, i + batchSize)
+      
+      const batchPromises = batch.map(async (domain) => {
+        this.addActivity(scanId, {
+          id: `activity_${Date.now()}_${Math.random()}`,
+          timestamp: new Date(),
+          type: 'dmca',
+          message: `📧 Detecting DMCA contact for ${domain}...`,
+          icon: '📧',
+          status: 'running'
+        })
+        
+        try {
+          const contactInfo = await dmcaContactDetector.findDmcaContact(`https://${domain}`)
+          
+          if (contactInfo.email) {
+            dmcaContactsFound++
+            if (contactInfo.isCompliant) compliantSites++
+            
+            dmcaResults.push({ domain, contact: contactInfo })
+            
+            this.addActivity(scanId, {
+              id: `activity_${Date.now()}_${Math.random()}`,
+              timestamp: new Date(),
+              type: 'dmca',
+              message: `✅ DMCA contact found: ${contactInfo.email} ${contactInfo.isCompliant ? '(Compliant)' : '(Non-compliant)'}`,
+              icon: '✅',
+              status: 'success',
+              metadata: { 
+                domain,
+                email: contactInfo.email, 
+                isCompliant: contactInfo.isCompliant,
+                confidence: contactInfo.confidence,
+                method: contactInfo.detectedMethod
+              }
+            })
+            
+            // Save DMCA contact info for detected content
+            try {
+              // Find detected content for this domain
+              const contentForDomain = detectedContent.find(content => {
+                try {
+                  return new URL(content.infringingUrl).hostname === domain
+                } catch {
+                  return false
+                }
+              })
+              
+              if (contentForDomain) {
+                // Check if DMCA info already exists for this content
+                const existing = await prisma.dmcaContactInfo.findUnique({
+                  where: {
+                    detectedContentId: contentForDomain.infringingUrl // Using URL as ID proxy
+                  }
+                })
+                
+                if (!existing) {
+                  // Get the actual detected content record with ID
+                  const detectedContentRecord = await prisma.detectedContent.findFirst({
+                    where: {
+                      infringingUrl: contentForDomain.infringingUrl
+                    }
+                  })
+                  
+                  if (detectedContentRecord) {
+                    await prisma.dmcaContactInfo.create({
+                      data: {
+                        detectedContentId: detectedContentRecord.id,
+                        email: contactInfo.email,
+                        isCompliant: contactInfo.isCompliant,
+                        contactPage: contactInfo.contactPage,
+                        detectedMethod: contactInfo.detectedMethod,
+                        confidence: contactInfo.confidence,
+                        additionalEmails: contactInfo.additionalEmails,
+                        lastCheckedAt: new Date()
+                      }
+                    })
+                  }
+                }
+              }
+            } catch (error) {
+              console.error(`Error saving DMCA contact for ${domain}:`, error)
+            }
+          } else {
+            this.addActivity(scanId, {
+              id: `activity_${Date.now()}_${Math.random()}`,
+              timestamp: new Date(),
+              type: 'dmca',
+              message: `⚠️ No DMCA contact found for ${domain}`,
+              icon: '⚠️',
+              status: 'warning',
+              metadata: { domain }
+            })
+          }
+        } catch (error) {
+          console.error(`Error detecting DMCA for ${domain}:`, error)
+          this.addActivity(scanId, {
+            id: `activity_${Date.now()}_${Math.random()}`,
+            timestamp: new Date(),
+            type: 'dmca',
+            message: `❌ Error checking ${domain}`,
+            icon: '❌',
+            status: 'error'
+          })
+        }
+        
+        this.emitUpdate(scanId)
+      })
+      
+      await Promise.allSettled(batchPromises)
+      
+      // Small delay between batches
+      if (i + batchSize < domains.length) {
+        await this.delay(500)
+      }
     }
-
+    
+    // Update insights with real data
     this.updateScanInsights(scanId, (insights) => ({
       ...insights,
-      dmcaContactsFound: dmcaContacts,
+      dmcaContactsFound: dmcaContactsFound,
       complianceSites: compliantSites,
-      estimatedRemovalTime: this.calculateRemovalTime(dmcaContacts, compliantSites)
+      estimatedRemovalTime: this.calculateRemovalTime(dmcaContactsFound, compliantSites)
     }))
 
     this.updateScanMethods(scanId, (methods) => ({
       ...methods,
-      dmcaDetection: { completed: true, contacts: dmcaContacts, compliance: compliantSites }
+      dmcaDetection: { 
+        completed: true, 
+        contacts: dmcaContactsFound, 
+        compliance: compliantSites 
+      }
     }))
 
-    this.updateProgress(scanId, 95, 'verifying', '✅ DMCA contact detection completed')
+    const message = dmcaContactsFound > 0
+      ? `✅ DMCA detection completed: Found ${dmcaContactsFound} contacts (${compliantSites} compliant)`
+      : '⚠️ DMCA detection completed: No contacts found'
+      
+    this.updateProgress(scanId, 95, 'verifying', message)
   }
 
   private async completeScan(scanId: string) {
@@ -426,18 +780,6 @@ class RealTimeScanner extends EventEmitter {
     this.emitUpdate(scanId)
   }
 
-  private generateSearchKeywords(brandName: string): string[] {
-    const base = brandName.toLowerCase()
-    return [
-      `${base} leaked`,
-      `${base} nude`,
-      `${base} onlyfans`,
-      `${base} pack`,
-      `${base} telegram`,
-      `${base} discord`,
-      `${base} free download`
-    ]
-  }
 
   private calculateRemovalTime(contacts: number, compliant: number): string {
     if (contacts === 0) return 'Manual action required'
