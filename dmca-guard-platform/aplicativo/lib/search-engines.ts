@@ -193,20 +193,36 @@ export class SearchEngineService {
   private serperApiKey?: string;
   private googleApiKey?: string;
   private googleCseId?: string;
-  private testMode: boolean;
+  private environment: string;
 
-  constructor(testMode: boolean = false) {
+  constructor() {
     this.serperApiKey = process.env.SERPER_API_KEY;
     this.googleApiKey = process.env.GOOGLE_API_KEY;
     this.googleCseId = process.env.GOOGLE_CSE_ID;
+    this.environment = process.env.NODE_ENV || 'development';
     
-    // Modo de teste ativado por: parâmetro OU variável de ambiente explícita
-    this.testMode = testMode || process.env.SEARCH_TEST_MODE === 'true';
+    // Verificar configuração
+    const isProduction = this.environment === 'production';
+    const hasSearchAPIs = !!(this.serperApiKey || this.googleApiKey);
     
-    if (this.testMode) {
-      console.log('🧪 SearchEngineService rodando em MODO DE TESTE');
-    } else {
-      console.log('🔥 SearchEngineService rodando com APIs REAIS');
+    // Logs de configuração
+    console.log(`🌍 Ambiente: ${this.environment}`);
+    console.log(`🔍 SearchEngineService configurado:`);
+    console.log(`   - Serper API: ${this.serperApiKey ? '✅ Configurada' : '❌ Não configurada'}`);
+    console.log(`   - Google API: ${this.googleApiKey ? '✅ Configurada' : '❌ Não configurada'}`);
+    
+    // Em produção, pelo menos uma API deve estar configurada
+    if (isProduction && !hasSearchAPIs) {
+      throw new Error(
+        '❌ ERRO CRÍTICO: Nenhuma API de busca configurada em produção!\n' +
+        'Configure SERPER_API_KEY ou GOOGLE_API_KEY nas variáveis de ambiente.\n' +
+        'O sistema NÃO pode funcionar sem APIs de busca real.'
+      );
+    }
+    
+    if (!hasSearchAPIs) {
+      console.warn('⚠️  AVISO: Nenhuma API de busca configurada em desenvolvimento.');
+      console.warn('⚠️  Configure Serper ou Google API para buscar conteúdo real.');
     }
   }
 
@@ -265,18 +281,42 @@ export class SearchEngineService {
   // Busca no Google usando Custom Search API
   async searchGoogle(keyword: string, config: SearchConfig): Promise<SearchResult[]> {
     if (!this.googleApiKey || !this.googleCseId) {
-      console.log('Google API não configurada, pulando...');
+      console.log('📵 Google API não configurada, pulando busca Google');
       return [];
     }
 
     try {
       const query = this.buildSearchQuery(keyword, config);
+      console.log(`🔍 Google Search: "${query}"`);
+      
       const url = `https://www.googleapis.com/customsearch/v1?key=${this.googleApiKey}&cx=${this.googleCseId}&q=${encodeURIComponent(query)}&num=10`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(10000) // Timeout de 10s
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Google API erro HTTP ${response.status}: ${errorText}`);
+        
+        // Tratar erros específicos
+        if (response.status === 429) {
+          console.error('❌ Google API: Limite de taxa excedido (Rate Limit)');
+        } else if (response.status === 403) {
+          console.error('❌ Google API: Acesso negado - verifique suas credenciais');
+        }
+        
+        return [];
+      }
+      
       const data = await response.json();
       
-      if (!data.items) return [];
+      if (!data.items || data.items.length === 0) {
+        console.log('⚠️  Google API: Nenhum resultado encontrado');
+        return [];
+      }
+      
+      console.log(`✅ Google API: ${data.items.length} resultados encontrados`);
       
       return data.items.map((item: any) => ({
         title: item.title,
@@ -289,7 +329,15 @@ export class SearchEngineService {
         detectedAt: new Date()
       }));
     } catch (error) {
-      console.error('Erro na busca Google:', error);
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          console.error('❌ Google API: Timeout - requisição demorou muito');
+        } else {
+          console.error('❌ Google API erro:', error.message);
+        }
+      } else {
+        console.error('❌ Google API erro desconhecido:', error);
+      }
       return [];
     }
   }
@@ -297,13 +345,13 @@ export class SearchEngineService {
   // Busca usando Serper API (alternativa robusta)
   async searchSerper(keyword: string, config: SearchConfig): Promise<SearchResult[]> {
     if (!this.serperApiKey) {
-      console.log('Serper API não configurada, pulando...');
+      console.log('📵 Serper API não configurada, pulando busca Serper');
       return [];
     }
 
     try {
       const query = this.buildSearchQuery(keyword, config);
-      console.log(`🔍 Serper query: "${query}"`);
+      console.log(`🔍 Serper Search: "${query}"`);
       
       const response = await fetch('https://google.serper.dev/search', {
         method: 'POST',
@@ -316,17 +364,34 @@ export class SearchEngineService {
           num: 20,
           gl: 'br', // Brasil
           hl: 'pt' // Português
-        })
+        }),
+        signal: AbortSignal.timeout(15000) // Timeout de 15s
       });
 
-      const data = await response.json();
-      console.log(`📊 Serper response status:`, response.status);
-      console.log(`📊 Serper data:`, { organic: data.organic?.length || 0, total: Object.keys(data).length });
-      
-      if (!data.organic || data.organic.length === 0) {
-        console.log('⚠️ Serper: Nenhum resultado orgânico encontrado');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Serper API erro HTTP ${response.status}: ${errorText}`);
+        
+        // Tratar erros específicos
+        if (response.status === 429) {
+          console.error('❌ Serper API: Limite de taxa excedido (Rate Limit)');
+        } else if (response.status === 401) {
+          console.error('❌ Serper API: API Key inválida - verifique SERPER_API_KEY');
+        } else if (response.status === 403) {
+          console.error('❌ Serper API: Acesso negado - verifique permissões da API Key');
+        }
+        
         return [];
       }
+
+      const data = await response.json();
+      
+      if (!data.organic || data.organic.length === 0) {
+        console.log('⚠️  Serper API: Nenhum resultado orgânico encontrado');
+        return [];
+      }
+      
+      console.log(`✅ Serper API: ${data.organic.length} resultados encontrados`);
       
       const results = data.organic.map((item: any) => ({
         title: item.title,
@@ -339,10 +404,17 @@ export class SearchEngineService {
         detectedAt: new Date()
       }));
       
-      console.log(`✅ Serper: ${results.length} resultados processados`);
       return results;
     } catch (error) {
-      console.error('❌ Erro na busca Serper:', error);
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          console.error('❌ Serper API: Timeout - requisição demorou muito');
+        } else {
+          console.error('❌ Serper API erro:', error.message);
+        }
+      } else {
+        console.error('❌ Serper API erro desconhecido:', error);
+      }
       return [];
     }
   }
@@ -374,13 +446,8 @@ export class SearchEngineService {
 
   // Busca completa usando múltiplas fontes
   async performCompleteSearch(config: SearchConfig): Promise<SearchResult[]> {
-    // MODO DE TESTE: gera resultados simulados
-    if (this.testMode) {
-      console.log(`🧪 MODO TESTE: Simulando busca para "${config.keyword}"`);
-      return this.generateTestResults(config);
-    }
-    
     const allResults: SearchResult[] = [];
+    const apiErrors: string[] = [];
     
     // Usar a keyword específica que veio do config (já processada no route)
     const keyword = config.keyword;
@@ -394,25 +461,47 @@ export class SearchEngineService {
         this.searchAdultSites(keyword, config)
       ]);
       
-      // Coleta resultados bem-sucedidos
+      // Coleta resultados bem-sucedidos e registra falhas
       if (googleResults.status === 'fulfilled') {
         allResults.push(...googleResults.value.map(r => ({ ...r, keyword })));
+      } else {
+        apiErrors.push(`Google API: ${googleResults.reason}`);
       }
+      
       if (serperResults.status === 'fulfilled') {
         allResults.push(...serperResults.value.map(r => ({ ...r, keyword })));
+      } else {
+        apiErrors.push(`Serper API: ${serperResults.reason}`);
       }
+      
       if (adultResults.status === 'fulfilled') {
         allResults.push(...adultResults.value.map(r => ({ ...r, keyword })));
+      } else {
+        apiErrors.push(`Adult Sites: ${adultResults.reason}`);
       }
       
     } catch (error) {
-      console.error(`Erro buscando keyword "${keyword}":`, error);
+      console.error(`❌ Erro crítico buscando keyword "${keyword}":`, error);
+      apiErrors.push(`Erro geral: ${error instanceof Error ? error.message : 'Desconhecido'}`);
     }
     
-    // Se não encontrou resultados reais, ativa modo teste como fallback
+    // Se teve erros, registrar no log
+    if (apiErrors.length > 0) {
+      console.error('❌ Erros nas APIs de busca:', apiErrors);
+    }
+    
+    // Se nenhum resultado foi encontrado
     if (allResults.length === 0) {
-      console.log('⚠️ Nenhum resultado da API real, ativando modo teste como fallback');
-      return this.generateTestResults(config);
+      console.error(`❌ Nenhum resultado encontrado para "${keyword}".`);
+      
+      if (this.environment === 'production') {
+        console.error('❌ Em produção: retornando array vazio. Verifique as APIs.');
+        // TODO: Implementar notificação para admin sobre falha das APIs
+      } else {
+        console.warn('⚠️  Em desenvolvimento: configure as APIs corretamente.');
+      }
+      
+      return [];
     }
     
     // Remove duplicatas e ordena por confiança
@@ -424,40 +513,6 @@ export class SearchEngineService {
     return filteredResults
       .sort((a, b) => b.confidence - a.confidence)
       .slice(0, config.maxResults);
-  }
-  
-  // Gera resultados de teste para demonstração
-  private generateTestResults(config: SearchConfig): SearchResult[] {
-    const { keyword, brandName } = config;
-    const testSites = [
-      'simpcity.su', 'coomer.party', 'kemono.party', 'thothub.tv',
-      'reddit.com/r/onlyfansleaks', 'erome.com', 'fapello.com',
-      'bunkr.is', 'cyberdrop.me', 'mega.nz', 'telegram.org'
-    ];
-    
-    const results: SearchResult[] = [];
-    
-    // Gera entre 3-8 resultados simulados
-    const numResults = Math.floor(Math.random() * 6) + 3;
-    
-    for (let i = 0; i < numResults; i++) {
-      const site = testSites[Math.floor(Math.random() * testSites.length)];
-      const confidence = Math.floor(Math.random() * 40) + 60; // 60-100%
-      
-      results.push({
-        title: `${brandName} - Leaked Content Pack [${confidence}% Match]`,
-        url: `https://${site}/threads/${keyword.replace(/\s+/g, '-').toLowerCase()}-leaked-${Date.now() + i}`,
-        snippet: `Exclusive ${brandName} content leaked including photos and videos. Keywords: ${keyword}`,
-        source: 'test-api',
-        platform: this.detectPlatform(`https://${site}`),
-        confidence,
-        thumbnailUrl: `https://via.placeholder.com/150x150?text=${encodeURIComponent(brandName)}`,
-        detectedAt: new Date()
-      });
-    }
-    
-    console.log(`🧪 Gerados ${results.length} resultados de teste para "${keyword}"`);
-    return results.sort((a, b) => b.confidence - a.confidence);
   }
 
   // Helpers

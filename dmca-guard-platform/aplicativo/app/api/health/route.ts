@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { fairQueueManager } from '@/lib/services/security/fair-queue-manager'
 import { cacheManager } from '@/lib/cache/cache-manager'
 import { Redis } from '@upstash/redis'
+import { getRedisHealth } from '@/lib/monitoring/redis-metrics'
 
 interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy'
@@ -69,28 +70,45 @@ async function checkDatabase(): Promise<ServiceHealth> {
 async function checkRedis(): Promise<ServiceHealth> {
   const start = Date.now()
   try {
-    if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    // Get Redis health from our monitoring system
+    const redisHealth = getRedisHealth()
+    
+    // Check if we're using MockRedis in production (critical issue)
+    if (redisHealth.type === 'mock' && process.env.NODE_ENV === 'production') {
       return {
         status: 'down',
-        error: 'Redis not configured'
+        responseTime: Date.now() - start,
+        error: 'MockRedis in production - Redis configuration required',
+        details: redisHealth
       }
     }
-
-    const redis = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    })
-
-    // Test connection with ping
-    const pong = await redis.ping()
     
-    return {
-      status: pong === 'PONG' ? 'up' : 'degraded',
-      responseTime: Date.now() - start,
-      details: {
-        connected: true,
-        ping: pong
+    // For Upstash Redis, try a ping
+    if (redisHealth.type === 'upstash' && process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+      const redis = new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      })
+
+      // Test connection with ping
+      const pong = await redis.ping()
+      
+      return {
+        status: redisHealth.status === 'critical' ? 'down' : 'up',
+        responseTime: Date.now() - start,
+        details: {
+          ...redisHealth,
+          connected: true,
+          ping: pong
+        }
       }
+    }
+    
+    // MockRedis in development
+    return {
+      status: redisHealth.status === 'healthy' ? 'up' : 'degraded',
+      responseTime: Date.now() - start,
+      details: redisHealth
     }
   } catch (error) {
     return {

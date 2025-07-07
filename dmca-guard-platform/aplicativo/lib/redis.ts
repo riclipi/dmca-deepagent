@@ -1,38 +1,57 @@
 // Redis client for rate limiting
 import { Redis } from '@upstash/redis'
+import { redisMonitor } from './monitoring/redis-metrics'
 
 // Mock Redis for local development without Redis connection
 class MockRedis {
   private store: Map<string, { value: string; ttl?: number; createdAt: number }> = new Map()
 
   async get(key: string): Promise<string | null> {
-    const item = this.store.get(key)
-    
-    if (!item) return null
-    
-    // Check if TTL expired
-    if (item.ttl && Date.now() - item.createdAt > item.ttl * 1000) {
-      this.store.delete(key)
-      return null
+    try {
+      redisMonitor.incrementOperation('get')
+      const item = this.store.get(key)
+      
+      if (!item) return null
+      
+      // Check if TTL expired
+      if (item.ttl && Date.now() - item.createdAt > item.ttl * 1000) {
+        this.store.delete(key)
+        return null
+      }
+      
+      return item.value
+    } catch (error) {
+      redisMonitor.recordError(error as Error)
+      throw error
     }
-    
-    return item.value
   }
 
   async set(key: string, value: string | number, ttl?: number): Promise<'OK'> {
-    this.store.set(key, {
-      value: String(value),
-      ttl,
-      createdAt: Date.now()
-    })
-    return 'OK'
+    try {
+      redisMonitor.incrementOperation('set')
+      this.store.set(key, {
+        value: String(value),
+        ttl,
+        createdAt: Date.now()
+      })
+      return 'OK'
+    } catch (error) {
+      redisMonitor.recordError(error as Error)
+      throw error
+    }
   }
 
   async incr(key: string): Promise<number> {
-    const current = await this.get(key)
-    const newValue = current ? parseInt(current) + 1 : 1
-    await this.set(key, newValue)
-    return newValue
+    try {
+      redisMonitor.incrementOperation('incr')
+      const current = await this.get(key)
+      const newValue = current ? parseInt(current) + 1 : 1
+      await this.set(key, newValue)
+      return newValue
+    } catch (error) {
+      redisMonitor.recordError(error as Error)
+      throw error
+    }
   }
 
   async expire(key: string, seconds: number): Promise<number> {
@@ -215,21 +234,75 @@ class MockRedis {
 
 // Create Redis instance based on environment
 function createRedisClient() {
-  // Use Upstash Redis if credentials are available
-  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-    return new Redis({
+  const hasRedisCredentials = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+  
+  // Always use Upstash Redis if credentials are available
+  if (hasRedisCredentials) {
+    console.log('✅ Using Upstash Redis for rate limiting')
+    redisMonitor.setType('upstash')
+    
+    // Create Upstash client with monitoring wrapper
+    const upstashClient = new Redis({
       url: process.env.UPSTASH_REDIS_REST_URL,
       token: process.env.UPSTASH_REDIS_REST_TOKEN,
     })
+    
+    // Wrap Upstash methods with monitoring
+    return new Proxy(upstashClient, {
+      get(target, prop) {
+        const original = target[prop as keyof typeof target]
+        if (typeof original === 'function') {
+          return async (...args: any[]) => {
+            try {
+              // Track operation if it's a monitored method
+              const monitoredOps = ['get', 'set', 'incr', 'expire', 'ttl', 'keys', 'del', 'flushall']
+              if (monitoredOps.includes(prop as string)) {
+                redisMonitor.incrementOperation(prop as any)
+              }
+              return await (original as Function).apply(target, args)
+            } catch (error) {
+              redisMonitor.recordError(error as Error)
+              throw error
+            }
+          }
+        }
+        return original
+      }
+    }) as any
   }
   
-  // Otherwise use mock for local development
-  console.warn('⚠️  Using MockRedis for rate limiting. Configure Upstash Redis for production.')
-  return new MockRedis()
+  // In development, allow MockRedis
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    console.warn('⚠️  Using MockRedis for rate limiting in development mode. Configure Redis for production.')
+    redisMonitor.setType('mock')
+    return new MockRedis()
+  }
+  
+  // In production, Redis is mandatory - no exceptions
+  throw new Error(
+    '❌ Redis configuration is required in production. ' +
+    'Please set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN environment variables. ' +
+    'Visit https://upstash.com to create a free Redis instance.'
+  )
 }
 
-// Export redis instance
-export const redis = createRedisClient()
+// Lazy initialization to avoid build-time errors
+let redisInstance: ReturnType<typeof createRedisClient> | null = null
+
+export function getRedis() {
+  if (!redisInstance) {
+    redisInstance = createRedisClient()
+  }
+  return redisInstance
+}
+
+// Export a proxy that initializes Redis on first use
+export const redis = new Proxy({} as ReturnType<typeof createRedisClient>, {
+  get(target, prop) {
+    const instance = getRedis()
+    return instance[prop as keyof typeof instance]
+  }
+})
 
 // Helper functions for rate limiting
 export async function checkRateLimit(

@@ -35,6 +35,21 @@ export default withAuth(
           return advancedRateLimitResponse
         }
       } catch (error) {
+        // Check if this is a Redis configuration error in production
+        if (process.env.NODE_ENV === 'production' && 
+            error instanceof Error && 
+            error.message.includes('Redis configuration is required')) {
+          console.error('Critical: Redis not configured in production:', error.message)
+          return NextResponse.json(
+            { 
+              error: 'Service Configuration Error',
+              message: 'The application is misconfigured. Please contact the administrator.',
+              code: 'REDIS_CONFIG_ERROR'
+            },
+            { status: 503 } // Service Unavailable
+          )
+        }
+        
         // Fallback to simple rate limiter if advanced fails
         console.warn('Advanced rate limiter failed, falling back to simple rate limiter:', error)
         
