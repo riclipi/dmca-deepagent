@@ -1,6 +1,7 @@
 // Redis client for rate limiting
 import { Redis } from '@upstash/redis'
 import { redisMonitor } from './monitoring/redis-metrics'
+import { EnhancedRedisClient, getEnhancedRedis } from './redis-enhanced'
 
 // Mock Redis for local development without Redis connection
 class MockRedis {
@@ -236,54 +237,34 @@ class MockRedis {
 function createRedisClient() {
   const hasRedisCredentials = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   
-  // Always use Upstash Redis if credentials are available
-  if (hasRedisCredentials) {
-    console.log('✅ Using Upstash Redis for rate limiting')
-    redisMonitor.setType('upstash')
-    
-    // Create Upstash client with monitoring wrapper
-    const upstashClient = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    })
-    
-    // Wrap Upstash methods with monitoring
-    return new Proxy(upstashClient, {
-      get(target, prop) {
-        const original = target[prop as keyof typeof target]
-        if (typeof original === 'function') {
-          return async (...args: any[]) => {
-            try {
-              // Track operation if it's a monitored method
-              const monitoredOps = ['get', 'set', 'incr', 'expire', 'ttl', 'keys', 'del', 'flushall']
-              if (monitoredOps.includes(prop as string)) {
-                redisMonitor.incrementOperation(prop as any)
-              }
-              return await (original as Function).apply(target, args)
-            } catch (error) {
-              redisMonitor.recordError(error as Error)
-              throw error
-            }
-          }
-        }
-        return original
-      }
-    }) as any
+  // In production, always use enhanced Redis with circuit breaker
+  if (process.env.NODE_ENV === 'production') {
+    if (!hasRedisCredentials) {
+      throw new Error(
+        '❌ Redis configuration is required in production. ' +
+        'Please set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN environment variables. ' +
+        'Visit https://upstash.com to create a free Redis instance.'
+      )
+    }
+    console.log('✅ Using Enhanced Redis with circuit breaker for production')
+    return getEnhancedRedis()
   }
   
-  // In development, allow MockRedis
+  // In non-production, use enhanced Redis if available, otherwise MockRedis
+  if (hasRedisCredentials) {
+    console.log('✅ Using Enhanced Redis for rate limiting')
+    return getEnhancedRedis()
+  }
+  
+  // In development/test without Redis, use MockRedis
   if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
     console.warn('⚠️  Using MockRedis for rate limiting in development mode. Configure Redis for production.')
     redisMonitor.setType('mock')
     return new MockRedis()
   }
   
-  // In production, Redis is mandatory - no exceptions
-  throw new Error(
-    '❌ Redis configuration is required in production. ' +
-    'Please set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN environment variables. ' +
-    'Visit https://upstash.com to create a free Redis instance.'
-  )
+  // Should not reach here
+  throw new Error('Unable to initialize Redis client')
 }
 
 // Lazy initialization to avoid build-time errors

@@ -1,16 +1,35 @@
 const { PrismaClient } = require('@prisma/client');
 
 async function main() {
-  console.log('🔥 CRIANDO EMAIL DE TESTE PARA RICARDO...');
   const prisma = new PrismaClient();
+
+  // Obter IDs e email das variáveis de ambiente
+  const userId = process.env.TEST_USER_ID;
+  const detectedContentId = process.env.TEST_DETECTED_CONTENT_ID;
+  const recipientEmail = process.env.TEST_RECIPIENT_EMAIL;
+
+  if (!userId || !detectedContentId || !recipientEmail) {
+    console.error('❌ Erro: Variáveis de ambiente obrigatórias não configuradas');
+    console.error('');
+    console.error('Configure as seguintes variáveis de ambiente:');
+    console.error('  TEST_USER_ID=id-do-usuario');
+    console.error('  TEST_DETECTED_CONTENT_ID=id-do-conteudo');
+    console.error('  TEST_RECIPIENT_EMAIL=email@exemplo.com');
+    console.error('');
+    console.error('Exemplo:');
+    console.error('  TEST_USER_ID=abc123 TEST_DETECTED_CONTENT_ID=xyz789 TEST_RECIPIENT_EMAIL=test@example.com node scripts/create-test-email-ricardo.js');
+    process.exit(1);
+  }
+
+  console.log(`🔥 CRIANDO EMAIL DE TESTE PARA ${recipientEmail}...`);
 
   try {
     const takedown = await prisma.takedownRequest.create({
       data: {
-        userId: 'cmbu5dsr700008kt9qdf5th1x',
-        detectedContentId: 'cmcanyzsx0000vwwgwv9sfcjv',
+        userId,
+        detectedContentId,
         platform: 'WEBSITE',
-        recipientEmail: 'ricardofelipe.felipe@gmail.com',
+        recipientEmail,
         subject: 'DMCA Takedown Notice - Teste Real DMCA Guard',
         message: `
 <!DOCTYPE html>
@@ -30,7 +49,7 @@ async function main() {
     </div>
     
     <div class="content">
-        <p><strong>Caro Ricardo,</strong></p>
+        <p><strong>Olá,</strong></p>
         
         <p>Este é um <strong>teste real</strong> do sistema DMCA Guard que você desenvolveu!</p>
         
@@ -58,7 +77,7 @@ async function main() {
     
     <div class="footer">
         <p>Este email foi enviado automaticamente pelo sistema DMCA Guard</p>
-        <p>Desenvolvido com ❤️ por Ricardo Felipe</p>
+        <p>Desenvolvido com ❤️ pela equipe DMCA Guard</p>
     </div>
 </body>
 </html>

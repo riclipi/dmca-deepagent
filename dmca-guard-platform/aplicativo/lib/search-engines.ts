@@ -19,8 +19,10 @@ interface SearchConfig {
   platforms: string[];
 }
 
-// Lista completa de sites para busca de vazamentos
-const ADULT_LEAK_SITES = [
+// DEPRECATED: Lista de sites movida para banco de dados
+// Use KnownSitesService.getInstance().getLeakSites() para obter sites do banco
+// Esta lista será removida em versão futura
+const ADULT_LEAK_SITES_DEPRECATED = [
   // Sites de vazamentos e adultos principais
   '16honeys.com', '18dreams.net', '1bigclub.com', '24xxx.porn', '3gpkings.info',
   '4fappers99.com', '4ksex.me', '6bangs.com', '6dude.com', '82xnxx.com',
@@ -548,7 +550,8 @@ export class SearchEngineService {
     if (domain.includes('mega.nz')) return 'Mega';
     if (domain.includes('pornhub')) return 'PornHub';
     if (domain.includes('xvideos')) return 'XVideos';
-    if (ADULT_LEAK_SITES.some(site => domain.includes(site))) return 'Adult/Leak Site';
+    // TODO: Substituir por verificação no banco via KnownSitesService
+    if (ADULT_LEAK_SITES_DEPRECATED.some(site => domain.includes(site))) return 'Adult/Leak Site';
     
     return 'Other';
   }
@@ -573,7 +576,8 @@ export class SearchEngineService {
     if (url.includes('onlyfans.com') && !url.includes('leaked')) confidence -= 20;
     
     // Aumenta para sites conhecidos de vazamento
-    if (ADULT_LEAK_SITES.some(site => url.includes(site))) confidence += 25;
+    // TODO: Substituir por verificação no banco via KnownSitesService
+    if (ADULT_LEAK_SITES_DEPRECATED.some(site => url.includes(site))) confidence += 25;
     
     return Math.min(Math.max(confidence, 0), 100);
   }

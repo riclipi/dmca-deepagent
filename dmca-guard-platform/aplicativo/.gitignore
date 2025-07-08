@@ -1,20 +1,215 @@
-# Dependencies
-/node_modules
+# ===================================================================
+# Security-First .gitignore for DMCA Guard Platform
+# ===================================================================
 
-# Next.js build output
-/.next/
-/out/
-
-# Local Environment Files
+# CRITICAL: Environment and Secrets
+# NEVER commit these files
 .env
-.env.local
+.env.*
+!.env.example
+!.env.test.example
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
 
-# Logs & Misc
-npm-debug.log*
+# Authentication & Credentials
+credentials.json
+service-account.json
+google-credentials.json
+aws-credentials
+.aws/
+secrets/
+vault/
+
+# Database
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+database/backups/
+migrations/temp/
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+bower_components/
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Production
+*.production
+*.prod
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+jest-results/
+e2e/screenshots/
+e2e/videos/
+.vscode-test/
+
+# Logs
+logs/
 *.log
-.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.npm/
 
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# Debug
+.vscode/
+.history/
+*.stackdump
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+.cache/
+
+# Uploads & User Content
+uploads/
+public/uploads/
+storage/
+user-content/
+evidence/
+
+# Build artifacts
+*.tsbuildinfo
+.turbo/
+.vercel/
+.netlify/
+
+# Package files
+*.tgz
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Monitoring & Analytics
+.sentryclirc
+newrelic_agent.log
+.lighthouseci/
+
+# Documentation builds
+docs/_build/
+docs/.vuepress/dist/
+site/
+
+# Miscellaneous
+*.patch
+*.diff
+.grunt/
+.lock-wscript
+.node_repl_history
+.yarn-integrity
+.eslintcache
+.stylelintcache
+.prettiercache
+
+# Security Reports
+security-reports/
+vulnerability-scans/
+penetration-tests/
+audit-logs/
+
+# Backup files
+backup/
+backups/
+*.backup
+*.bk
+
+# Local development
+.local/
+local-data/
+dev-tools/
+
+# Python (for scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.Python
+
+# Ruby (for scripts)
+*.gem
+.bundle/
+vendor/bundle/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# Custom
 /app/credentials.json
 dmca-guard-platform/app/credentials.json
 dmca-guard-platform/.env.local
 dmca-guard-platform/.env
+
+# Gmail OAuth tokens - NEVER commit
+gmail_token.json
+gmail_token_*.json
+*_token.json
+tokens/
+
+# Scripts with sensitive data
+scripts/*-production.js
+scripts/*-prod.js
+scripts/temp-*.js
+scripts/local-*.js
+
+# IMPORTANT: If you accidentally commit sensitive data:
+# 1. Remove it from history: git filter-branch or BFG Repo-Cleaner
+# 2. Rotate all exposed credentials immediately
+# 3. Force push to all remotes
+# 4. Notify the security team

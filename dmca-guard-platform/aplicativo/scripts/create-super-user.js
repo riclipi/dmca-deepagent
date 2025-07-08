@@ -10,9 +10,24 @@ async function createSuperUser() {
   console.log('===============================================');
   console.log('');
 
-  const superUserEmail = process.env.SUPER_USER_EMAIL || 'larys.cubas@hotmail.com';
-  const superUserName = 'Lary Cubas';
-  const superUserPassword = 'DmcaGuard2024!';
+  // Obter credenciais das variáveis de ambiente
+  const superUserEmail = process.env.SUPER_USER_EMAIL;
+  const superUserName = process.env.SUPER_USER_NAME;
+  const superUserPassword = process.env.SUPER_USER_PASSWORD;
+
+  // Validar que todas as variáveis estão configuradas
+  if (!superUserEmail || !superUserName || !superUserPassword) {
+    console.error('❌ Erro: Variáveis de ambiente obrigatórias não configuradas');
+    console.error('');
+    console.error('Configure as seguintes variáveis de ambiente:');
+    console.error('  SUPER_USER_EMAIL=email@exemplo.com');
+    console.error('  SUPER_USER_NAME="Nome do Usuário"');
+    console.error('  SUPER_USER_PASSWORD="SenhaSegura123!"');
+    console.error('');
+    console.error('Exemplo:');
+    console.error('  SUPER_USER_EMAIL=admin@dmcaguard.com SUPER_USER_NAME="Admin DMCA" SUPER_USER_PASSWORD="SuperSecure2024!" node scripts/create-super-user.js');
+    process.exit(1);
+  }
 
   try {
     // Verificar se usuário já existe
@@ -57,10 +72,9 @@ async function createSuperUser() {
     console.log('✅ Super User criado com sucesso!');
     console.log(`📧 Email: ${superUser.email}`);
     console.log(`👤 Nome: ${superUser.name}`);
-    console.log(`🔑 Senha: ${superUserPassword}`);
     console.log(`🏆 Plano: ${superUser.planType}`);
     console.log('');
-    console.log('⚠️  IMPORTANTE: Altere a senha no primeiro login!');
+    console.log('⚠️  IMPORTANTE: Guarde as credenciais em local seguro e altere a senha no primeiro login!');
 
   } catch (error) {
     console.error('❌ Erro ao criar Super User:', error);
