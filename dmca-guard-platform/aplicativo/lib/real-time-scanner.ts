@@ -51,6 +51,7 @@ class RealTimeScanner extends EventEmitter {
   private scanMethods: Map<string, ScanMethods> = new Map()
   private scanInsights: Map<string, ScanInsights> = new Map()
   private scanActivities: Map<string, ScanActivity[]> = new Map()
+  private scanSessions: Map<string, string> = new Map() // scanId -> monitoringSessionId
 
   async startScan(userId: string, profileId: string, scanType: 'full' | 'quick' | 'targeted' = 'full'): Promise<string> {
     const scanId = `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -121,11 +122,27 @@ class RealTimeScanner extends EventEmitter {
         throw new Error('Brand profile not found')
       }
 
+      // Create monitoring session for this scan
+      const monitoringSession = await prisma.monitoringSession.create({
+        data: {
+          userId: profile.userId,
+          brandProfileId: profile.id,
+          name: `Real-time scan - ${new Date().toISOString()}`,
+          description: `Automated scan type: ${scanType}`,
+          status: 'RUNNING',
+          targetPlatforms: [],
+          useProfileKeywords: true
+        }
+      })
+
+      // Store session ID for use in detected content
+      this.scanSessions.set(scanId, monitoringSession.id)
+
       // Phase 1: Search Engine Queries
-      await this.runSearchEnginePhase(scanId, profile)
+      await this.runSearchEnginePhase(scanId, profile, monitoringSession.id)
       
       // Phase 2: Targeted Site Scans
-      await this.runTargetedSitePhase(scanId, profile)
+      await this.runTargetedSitePhase(scanId, profile, monitoringSession.id)
       
       // Phase 3: Image Analysis
       await this.runImageAnalysisPhase(scanId, profile)
@@ -141,7 +158,7 @@ class RealTimeScanner extends EventEmitter {
     }
   }
 
-  private async runSearchEnginePhase(scanId: string, profile: any) {
+  private async runSearchEnginePhase(scanId: string, profile: any, monitoringSessionId: string) {
     this.updateProgress(scanId, 10, 'searching', '🔍 Searching across multiple search engines...')
     
     // Initialize search service
@@ -251,17 +268,16 @@ class RealTimeScanner extends EventEmitter {
                 if (!existing && result.confidence >= 50) {
                   await prisma.detectedContent.create({
                     data: {
-                      userId: profile.userId,
-                      brandProfileId: profile.id,
+                      user: { connect: { id: profile.userId } },
+                      brandProfile: { connect: { id: profile.id } },
+                      monitoringSession: { connect: { id: monitoringSessionId } },
                       title: result.title,
                       description: result.snippet,
                       contentType: 'OTHER',
                       infringingUrl: result.url,
                       platform: result.platform,
                       thumbnailUrl: result.thumbnailUrl,
-                      confidence: Math.round(result.confidence),
-                      keywordSource: keyword,
-                      platformType: result.source,
+                      similarity: result.confidence / 100, // Convert to 0-1 range
                       priority: result.confidence >= 70 ? 'HIGH' : 'MEDIUM',
                       detectedAt: result.detectedAt || new Date()
                     }
@@ -329,7 +345,7 @@ class RealTimeScanner extends EventEmitter {
     this.updateProgress(scanId, 30, 'searching', message)
   }
 
-  private async runTargetedSitePhase(scanId: string, profile: any) {
+  private async runTargetedSitePhase(scanId: string, profile: any, monitoringSessionId: string) {
     this.updateProgress(scanId, 40, 'analyzing', '🎯 Scanning targeted adult sites...')
     
     // Initialize search service
@@ -436,17 +452,16 @@ class RealTimeScanner extends EventEmitter {
                   if (!existing) {
                     await prisma.detectedContent.create({
                       data: {
-                        userId: profile.userId,
-                        brandProfileId: profile.id,
+                        user: { connect: { id: profile.userId } },
+                        brandProfile: { connect: { id: profile.id } },
+                        monitoringSession: { connect: { id: monitoringSessionId } },
                         title: result.title,
                         description: result.snippet,
                         contentType: 'OTHER',
                         infringingUrl: result.url,
                         platform: site,
                         thumbnailUrl: result.thumbnailUrl,
-                        confidence: Math.round(result.confidence),
-                        keywordSource: `site:${site}`,
-                        platformType: 'targeted_scan',
+                        similarity: result.confidence / 100, // Convert to 0-1 range
                         priority: result.confidence >= 70 ? 'HIGH' : 'MEDIUM',
                         detectedAt: new Date()
                       }

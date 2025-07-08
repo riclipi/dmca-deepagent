@@ -162,9 +162,8 @@ export async function PATCH(
       data: {
         userId: session.user.id,
         action: 'BRAND_PROFILE_UPDATE',
-        entityType: 'BrandProfile',
-        entityId: updated.id,
-        metadata: {
+        resource: `BrandProfile:${updated.id}`,
+        details: {
           changes: Object.keys(bodyValidation.data)
         }
       }
@@ -247,9 +246,8 @@ export async function DELETE(
       data: {
         userId: session.user.id,
         action: 'BRAND_PROFILE_DELETE',
-        entityType: 'BrandProfile',
-        entityId: profile.id,
-        metadata: {
+        resource: `BrandProfile:${profile.id}`,
+        details: {
           brandName: profile.brandName
         }
       }

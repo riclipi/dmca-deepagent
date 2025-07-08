@@ -2,7 +2,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { motion, MotionProps } from "framer-motion"
 
-interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement>, MotionProps {
+type GlassCardProps = Omit<React.HTMLAttributes<HTMLDivElement>, keyof MotionProps> & MotionProps & {
   variant?: 'default' | 'purple' | 'pink' | 'blue'
   blur?: 'sm' | 'md' | 'lg'
   glow?: boolean

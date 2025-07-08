@@ -37,16 +37,15 @@ const glowButtonVariants = cva(
   }
 )
 
-interface GlowButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof glowButtonVariants>,
-    MotionProps {
+interface GlowButtonProps extends 
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  VariantProps<typeof glowButtonVariants> {
   asChild?: boolean
   ripple?: boolean
 }
 
-const GlowButton = React.forwardRef<HTMLButtonElement, GlowButtonProps>(
-  ({ className, variant, size, glow, asChild = false, ripple = true, children, ...props }, ref) => {
+const GlowButton = React.forwardRef<HTMLButtonElement, GlowButtonProps & Partial<MotionProps>>(
+  ({ className, variant, size, glow, asChild = false, ripple = true, children, whileHover, whileTap, ...props }, ref) => {
     const [ripples, setRipples] = React.useState<Array<{ x: number; y: number; id: number }>>([])
     
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -66,14 +65,25 @@ const GlowButton = React.forwardRef<HTMLButtonElement, GlowButtonProps>(
       props.onClick?.(e)
     }
 
-    const Comp = asChild ? Slot : motion.button
+    if (asChild) {
+      return (
+        <Slot
+          className={cn(glowButtonVariants({ variant, size, glow, className }))}
+          ref={ref}
+          onClick={handleClick}
+          {...props}
+        >
+          {children}
+        </Slot>
+      )
+    }
 
     return (
-      <Comp
+      <motion.button
         className={cn(glowButtonVariants({ variant, size, glow, className }))}
         ref={ref}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={whileHover || { scale: 1.05 }}
+        whileTap={whileTap || { scale: 0.95 }}
         onClick={handleClick}
         {...props}
       >
@@ -110,7 +120,7 @@ const GlowButton = React.forwardRef<HTMLButtonElement, GlowButtonProps>(
         
         {/* Button content */}
         <span className="relative z-10">{children}</span>
-      </Comp>
+      </motion.button>
     )
   }
 )

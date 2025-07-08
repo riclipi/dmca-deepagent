@@ -2,7 +2,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { motion, MotionProps } from "framer-motion"
 
-interface GradientTextProps extends React.HTMLAttributes<HTMLSpanElement>, MotionProps {
+type GradientTextProps = React.HTMLAttributes<HTMLSpanElement> & {
   variant?: 'purple-pink' | 'blue-purple' | 'pink-blue' | 'rainbow'
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl'
   weight?: 'normal' | 'medium' | 'semibold' | 'bold' | 'extrabold'
@@ -16,7 +16,7 @@ const GradientText = React.forwardRef<HTMLSpanElement, GradientTextProps>(
     size = 'md', 
     weight = 'bold',
     animate = false,
-    children, 
+    children,
     ...props 
   }, ref) => {
     const gradients = {
@@ -46,28 +46,37 @@ const GradientText = React.forwardRef<HTMLSpanElement, GradientTextProps>(
       'extrabold': 'font-extrabold'
     }
 
-    const Component = animate ? motion.span : 'span'
+    const baseClassName = cn(
+      "inline-block bg-gradient-to-r bg-clip-text text-transparent",
+      gradients[variant],
+      sizes[size],
+      weights[weight],
+      animate && "animate-shimmer bg-[length:200%_100%]",
+      className
+    )
+
+    if (animate) {
+      return (
+        <motion.span
+          ref={ref}
+          className={baseClassName}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          {children}
+        </motion.span>
+      )
+    }
 
     return (
-      <Component
+      <span
         ref={ref}
-        className={cn(
-          "inline-block bg-gradient-to-r bg-clip-text text-transparent",
-          gradients[variant],
-          sizes[size],
-          weights[weight],
-          animate && "animate-shimmer bg-[length:200%_100%]",
-          className
-        )}
-        {...(animate ? {
-          initial: { opacity: 0, y: 20 },
-          animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.5 }
-        } : {})}
+        className={baseClassName}
         {...props}
       >
         {children}
-      </Component>
+      </span>
     )
   }
 )

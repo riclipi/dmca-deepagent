@@ -3,9 +3,22 @@
 
 import { PrismaClient, SiteCategory } from '@prisma/client'
 import chalk from 'chalk'
-import { ADULT_LEAK_SITES } from '../lib/search-engines'
 
 const prisma = new PrismaClient()
+
+// Default sites to migrate if needed
+const ADULT_LEAK_SITES = [
+  'reddit.com',
+  'twitter.com',
+  'x.com',
+  'telegram.me',
+  't.me',
+  'mega.nz',
+  'gofile.io',
+  'bunkr.si',
+  'pixeldrain.com',
+  'cyberfile.is'
+]
 
 interface SiteData {
   domain: string
@@ -34,7 +47,7 @@ function categorizeSite(domain: string): SiteData {
       lowerDomain.includes('tezfiles') || lowerDomain.includes('fboom')) {
     return {
       domain,
-      category: 'FILE_HOSTING',
+      category: 'FILE_SHARING' as SiteCategory,
       riskScore: 70
     }
   }
@@ -54,7 +67,7 @@ function categorizeSite(domain: string): SiteData {
       lowerDomain.includes('fappening') || lowerDomain.includes('thothub')) {
     return {
       domain,
-      category: 'LEAK_SITE',
+      category: 'ADULT_CONTENT' as SiteCategory,
       riskScore: 95
     }
   }
@@ -64,7 +77,7 @@ function categorizeSite(domain: string): SiteData {
       lowerDomain.includes('fancentro') || lowerDomain.includes('loyalfans')) {
     return {
       domain,
-      category: 'LEAK_SITE',
+      category: 'ADULT_CONTENT' as SiteCategory,
       platform: 'onlyfans',
       riskScore: 90
     }
@@ -75,7 +88,7 @@ function categorizeSite(domain: string): SiteData {
       lowerDomain.includes('livejasmin') || lowerDomain.includes('bongacams')) {
     return {
       domain,
-      category: 'LEAK_SITE',
+      category: 'ADULT_CONTENT' as SiteCategory,
       platform: 'cam',
       riskScore: 85
     }
@@ -86,7 +99,7 @@ function categorizeSite(domain: string): SiteData {
       lowerDomain.includes('pixhost') || lowerDomain.includes('imagetwist')) {
     return {
       domain,
-      category: 'IMAGE_HOSTING',
+      category: 'FILE_SHARING' as SiteCategory,
       riskScore: 50
     }
   }
@@ -94,7 +107,7 @@ function categorizeSite(domain: string): SiteData {
   // Default to adult content site
   return {
     domain,
-    category: 'LEAK_SITE',
+    category: 'ADULT_CONTENT' as SiteCategory,
     riskScore: 80
   }
 }

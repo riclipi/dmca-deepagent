@@ -25,6 +25,12 @@ interface RedisMetrics {
       timestamp: Date
     }
   }
+  latency: {
+    total: number
+    count: number
+    average: number
+    max: number
+  }
 }
 
 class RedisMonitor {
@@ -44,6 +50,12 @@ class RedisMonitor {
     },
     errors: {
       count: 0,
+    },
+    latency: {
+      total: 0,
+      count: 0,
+      average: 0,
+      max: 0,
     },
   }
 
@@ -76,6 +88,13 @@ class RedisMonitor {
     if (error.message.includes('Redis configuration is required')) {
       console.error('🚨 CRITICAL: Redis configuration error in production')
     }
+  }
+
+  recordLatency(duration: number) {
+    this.metrics.latency.total += duration
+    this.metrics.latency.count++
+    this.metrics.latency.average = this.metrics.latency.total / this.metrics.latency.count
+    this.metrics.latency.max = Math.max(this.metrics.latency.max, duration)
   }
 
   getMetrics(): RedisMetrics {

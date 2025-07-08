@@ -142,6 +142,16 @@ export class ApiResponse {
   }
 
   /**
+   * Bad Request (400 Bad Request)
+   */
+  static badRequest(
+    message: string = 'Requisição inválida',
+    errors?: ApiErrorDetail[]
+  ): NextResponse {
+    return this.error(message, 400, errors)
+  }
+
+  /**
    * Conflito (409 Conflict)
    */
   static conflict(

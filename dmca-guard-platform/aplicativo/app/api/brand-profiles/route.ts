@@ -155,9 +155,8 @@ export const POST = createValidatedHandler(
         data: {
           userId: session.user.id,
           action: 'BRAND_PROFILE_CREATE',
-          entityType: 'BrandProfile',
-          entityId: profile.id,
-          metadata: {
+          resource: `BrandProfile:${profile.id}`,
+          details: {
             brandName: profile.brandName
           }
         }

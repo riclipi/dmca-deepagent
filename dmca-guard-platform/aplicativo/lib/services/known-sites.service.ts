@@ -82,7 +82,7 @@ export class KnownSitesService {
    * Get leak-specific sites
    */
   async getLeakSites(): Promise<KnownSite[]> {
-    return this.getActiveSites({ category: 'LEAK_SITE' })
+    return this.getActiveSites({ category: 'ADULT_CONTENT' })
   }
 
   /**
@@ -231,6 +231,22 @@ export class KnownSitesService {
     this.invalidateCache()
 
     return updated
+  }
+
+  /**
+   * Delete a site
+   */
+  async deleteSite(id: string): Promise<void> {
+    const deleted = await prisma.knownSite.delete({
+      where: { id }
+    })
+
+    if (!deleted) {
+      throw new Error('Site not found')
+    }
+
+    // Invalidate cache
+    this.invalidateCache()
   }
 
   /**

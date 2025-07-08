@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requestSigner, shouldProtectEndpoint } from '@/lib/security/request-signing'
+import { validateSignature } from '@/lib/security/request-signing-edge'
 import { ApiResponse } from '@/lib/api-response'
+
+// Define which endpoints should be protected
+const PROTECTED_PATTERNS = [
+  '/api/admin/',
+  '/api/agents/',
+  '/api/takedown-requests/',
+  '/api/detected-content/'
+]
+
+function shouldProtectEndpoint(pathname: string): boolean {
+  return PROTECTED_PATTERNS.some(pattern => pathname.startsWith(pattern))
+}
 
 export async function signatureValidationMiddleware(request: NextRequest) {
   const pathname = new URL(request.url).pathname
@@ -16,20 +28,20 @@ export async function signatureValidationMiddleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Parse body if needed
-  let body
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    try {
-      const clonedRequest = request.clone()
-      const text = await clonedRequest.text()
-      body = text ? JSON.parse(text) : undefined
-    } catch (error) {
-      return ApiResponse.error('Invalid request body')
-    }
+  // Get signing secret
+  const secret = process.env.REQUEST_SIGNING_SECRET
+  if (!secret) {
+    console.error('[Security] REQUEST_SIGNING_SECRET not configured')
+    return NextResponse.json(
+      { error: 'Internal configuration error' },
+      { status: 500 }
+    )
   }
 
   // Validate signature
-  const validation = await requestSigner.validateSignature(request, body)
+  const validation = await validateSignature(request, secret, {
+    includeBody: request.method !== 'GET' && request.method !== 'HEAD'
+  })
 
   if (!validation.isValid) {
     console.error(`[Security] Invalid signature for ${pathname}:`, validation.error)
@@ -46,7 +58,10 @@ export async function signatureValidationMiddleware(request: NextRequest) {
       })
     }
 
-    return ApiResponse.unauthorized(validation.error || 'Invalid request signature')
+    return NextResponse.json(
+      { error: validation.error || 'Invalid request signature' },
+      { status: 401 }
+    )
   }
 
   // Add validated timestamp to headers for downstream use

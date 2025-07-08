@@ -230,7 +230,7 @@ export class EnhancedRedisClient {
     value: string | number, 
     options?: { ex?: number; px?: number }
   ): Promise<'OK'> {
-    return this.withCircuitBreaker(
+    const result = await this.withCircuitBreaker(
       async () => {
         if (!this.client) throw new Error('Redis client not initialized')
         
@@ -244,6 +244,8 @@ export class EnhancedRedisClient {
       },
       'set'
     )
+    
+    return result as 'OK'
   }
 
   async incr(key: string): Promise<number> {
